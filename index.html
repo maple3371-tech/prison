@@ -439,7 +439,7 @@ code{background:#E8ECF2; border:1px solid var(--ink); border-radius:3px; padding
             <button class="btn" id="btn-dayoff">데이오프 등록</button>
           </div>
           <div id="dayoff-list"></div>
-          <p class="hint">데이오프로 등록한 날은 범칙금이 없어. 미래 날짜는 자유롭게, <b>지난 날 데이오프는 각 달마다 딱 1번</b>만 소급 등록 가능! (이미 출석한 날은 등록 불필요)</p>
+          <p class="hint">데이오프로 등록한 날은 범칙금이 없어.</p>
         </div>
       </div>
     </div>
@@ -917,9 +917,9 @@ $('btn-dayoff').onclick = async () => {
     if (m.proofs?.[s]) { toast('그날은 이미 출석했어! 데이오프가 필요 없어 😎'); return; }
     if (m.startDate && s < m.startDate) { toast('입소 전 날짜야!'); return; }
     const used = retroUsedDate(m, s.slice(0,7));
-    if (used) { toast(`${s.slice(5,7)}월 지난 날 데이오프는 이미 ${fmtDate(used)}에 썼어! (한 달에 1번)`); return; }
+    if (used) { toast(`이번 건 이미 ${fmtDate(used)}에 썼어! (한 달에 1번)`); return; }
     await updateDoc(doc(db,'status',me.uid), { ['dayoffs.'+s]: true, ['retro.'+s]: true });
-    toast(`${fmtDate(s)} 데이오프 소급 등록! 범칙금이 소멸됐어 🎫`);
+    toast(`${fmtDate(s)} 데이오프 등록! 🎫`);
     return;
   }
   await updateDoc(doc(db,'status',me.uid), { ['dayoffs.'+s]: true });
@@ -932,16 +932,13 @@ function renderDayoffs() {
   const retro = Object.keys(m.dayoffs||{}).filter(s=>s<t && m.retro?.[s]).sort().reverse().slice(0,3);
   const chips =
     future.map(s => `<span class="chip">🎫 ${fmtDate(s)} <button data-d="${s}" aria-label="취소">✕</button></span>`).join('') +
-    retro.map(s => `<span class="chip" style="border-color:#8A94A6;color:#5B6472">🎫 ${fmtDate(s)} 소급 <button data-d="${s}" data-r="1" aria-label="취소">✕</button></span>`).join('');
-  const thisMonth = todayStr().slice(0,7);
-  const usedNow = retroUsedDate(m, thisMonth);
-  $('dayoff-list').innerHTML = (chips || `<p class="hint">등록된 데이오프 없음</p>`) +
-    `<p class="hint">🎫 이번 달 지난 날 데이오프: ${usedNow ? `${fmtDate(usedNow)}에 사용 완료` : '아직 사용 가능 (1회)'}</p>`;
+    retro.map(s => `<span class="chip" style="border-color:#8A94A6;color:#5B6472">🎫 ${fmtDate(s)} <button data-d="${s}" data-r="1" aria-label="취소">✕</button></span>`).join('');
+  $('dayoff-list').innerHTML = chips || `<p class="hint">등록된 데이오프 없음</p>`;
   $('dayoff-list').querySelectorAll('button').forEach(b => b.onclick = async () => {
     const upd = { ['dayoffs.'+b.dataset.d]: deleteField() };
     if (b.dataset.r) upd['retro.'+b.dataset.d] = deleteField(); // 소급 취소 → 그 달 1회권 반환
     await updateDoc(doc(db,'status',me.uid), upd);
-    toast(b.dataset.r ? '소급 데이오프 취소! 이 달 1회권이 돌아왔어.' : '데이오프 취소 완료!');
+    toast('데이오프 취소 완료!');
   });
 }
 
