@@ -439,7 +439,7 @@ code{background:#E8ECF2; border:1px solid var(--ink); border-radius:3px; padding
             <button class="btn" id="btn-dayoff">허가증 발급</button>
           </div>
           <div id="dayoff-list"></div>
-          <p class="hint">외출 허가를 받은 날은 범칙금이 없어. (오늘 포함 미래 날짜만 발급 가능 — 지난 날 소급 불가)</p>
+          <p class="hint">외출 허가를 받은 날은 범칙금이 없어. 미래 날짜는 자유롭게, 지난 날은 🕊️ <b>특별 사면</b>으로 소급 가능 — 단, 각 달마다 딱 1번! (이미 출석한 날은 사면 불필요)</p>
         </div>
       </div>
     </div>
@@ -582,7 +582,7 @@ onAuthStateChanged(auth, async user => {
         name: user.displayName || '이름없음', photoURL: user.photoURL || '',
         email: user.email, startDate: todayStr(), joinedAt: Date.now(),
         stamp: 'paw',
-        proofs: {}, dayoffs: {}, paid: {}
+        proofs: {}, dayoffs: {}, paid: {}, retro: {}
       });
     } else {
       const d = snap.data(), fix = {};
@@ -836,7 +836,7 @@ function renderCal() {
       if (!m.startDate || s < m.startDate) return;
       let icon = '';
       if (m.proofs?.[s]) icon = '✔';
-      else if (m.dayoffs?.[s]) icon = '🎫';
+      else if (m.dayoffs?.[s]) icon = m.retro?.[s] ? '🕊️' : '🎫';
       else if (s < t) icon = m.paid?.[s] ? '💰' : '✖';
       else if (s === t) icon = '…';
       if (icon) marks += `<span class="mk" style="border-color:${mkColor(uid)};color:${mkColor(uid)}">${icon}</span>`;
@@ -850,7 +850,7 @@ function renderCal() {
     c.onkeydown = e => { if(e.key==='Enter') openPhotos(c.dataset.date); };
   });
   const names = uids.map(uid=>`<span class="mk" style="width:auto;padding:0 6px;border-color:${mkColor(uid)};color:${mkColor(uid)}">${esc(members[uid].name)}</span>`).join(' ');
-  $('legend').innerHTML = `${names} · ✔출석 🎫외출 ✖범칙금 💰납부완료`;
+  $('legend').innerHTML = `${names} · ✔출석 🎫외출 🕊️사면 ✖범칙금 💰납부완료`;
 }
 $('cal-prev').onclick = () => { view.setMonth(view.getMonth()-1); renderCal(); renderStamps(); };
 $('cal-next').onclick = () => { view.setMonth(view.getMonth()+1); renderCal(); renderStamps(); };
@@ -901,26 +901,47 @@ function payFine(date) {
   inp.click();
 }
 
-/* ── 외출 허가증 ── */
+/* ── 외출 허가증 ──
+   미래/오늘: 자유롭게 발급
+   지난 날: "특별 사면" 소급 발급 — 그 날짜가 속한 달마다 딱 1번!
+   (소급 발급된 건 retro 맵에 표시해서 구분) */
 $('dayoff-date').value = todayStr();
-$('dayoff-date').min = todayStr();
+const retroUsedDate = (m, month) => // 이 달(YYYY-MM)에 이미 쓴 소급 허가 날짜
+  Object.keys(m?.retro||{}).find(s => s.slice(0,7) === month && m.dayoffs?.[s]);
 $('btn-dayoff').onclick = async () => {
   const s = $('dayoff-date').value;
   if (!s || !me) return;
-  if (s < todayStr()) { toast('지난 날은 소급 발급이 안 돼~ 😅'); return; }
+  const m = members[me.uid] || {};
+  if (m.dayoffs?.[s]) { toast('이미 허가증이 발급된 날이야!'); return; }
+  if (s < todayStr()) { // 소급 발급 (특별 사면)
+    if (m.proofs?.[s]) { toast('그날은 이미 출석했어! 사면이 필요 없어 😎'); return; }
+    if (m.startDate && s < m.startDate) { toast('입소 전 날짜야!'); return; }
+    const used = retroUsedDate(m, s.slice(0,7));
+    if (used) { toast(`${s.slice(5,7)}월 특별 사면은 이미 ${fmtDate(used)}에 썼어! (한 달에 1번)`); return; }
+    await updateDoc(doc(db,'status',me.uid), { ['dayoffs.'+s]: true, ['retro.'+s]: true });
+    toast(`${fmtDate(s)} 특별 사면 발급! 범칙금이 소멸됐어 🕊️`);
+    return;
+  }
   await updateDoc(doc(db,'status',me.uid), { ['dayoffs.'+s]: true });
   toast(`${fmtDate(s)} 외출 허가증 발급! 🎫`);
 };
 function renderDayoffs() {
   const m = members[me?.uid]; if (!m) return;
   const t = todayStr();
-  const list = Object.keys(m.dayoffs||{}).filter(s=>s>=t).sort();
-  $('dayoff-list').innerHTML = list.map(s =>
-    `<span class="chip">🎫 ${fmtDate(s)} <button data-d="${s}" aria-label="취소">✕</button></span>`).join('') ||
-    `<p class="hint">발급된 허가증 없음</p>`;
+  const future = Object.keys(m.dayoffs||{}).filter(s=>s>=t).sort();
+  const retro = Object.keys(m.dayoffs||{}).filter(s=>s<t && m.retro?.[s]).sort().reverse().slice(0,3);
+  const chips =
+    future.map(s => `<span class="chip">🎫 ${fmtDate(s)} <button data-d="${s}" aria-label="취소">✕</button></span>`).join('') +
+    retro.map(s => `<span class="chip" style="border-color:#8A94A6;color:#5B6472">🕊️ ${fmtDate(s)} 사면 <button data-d="${s}" data-r="1" aria-label="취소">✕</button></span>`).join('');
+  const thisMonth = todayStr().slice(0,7);
+  const usedNow = retroUsedDate(m, thisMonth);
+  $('dayoff-list').innerHTML = (chips || `<p class="hint">발급된 허가증 없음</p>`) +
+    `<p class="hint">🕊️ 이번 달 특별 사면(소급): ${usedNow ? `${fmtDate(usedNow)}에 사용 완료` : '아직 사용 가능 (1회)'}</p>`;
   $('dayoff-list').querySelectorAll('button').forEach(b => b.onclick = async () => {
-    await updateDoc(doc(db,'status',me.uid), { ['dayoffs.'+b.dataset.d]: deleteField() });
-    toast('허가증 회수 완료!');
+    const upd = { ['dayoffs.'+b.dataset.d]: deleteField() };
+    if (b.dataset.r) upd['retro.'+b.dataset.d] = deleteField(); // 사면 취소 → 그 달 1회권 반환
+    await updateDoc(doc(db,'status',me.uid), upd);
+    toast(b.dataset.r ? '사면 취소! 이 달 1회권이 돌아왔어.' : '허가증 회수 완료!');
   });
 }
 
