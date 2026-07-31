@@ -341,7 +341,7 @@ code{background:#E8ECF2; border:1px solid var(--ink); border-radius:3px; padding
   <div class="searchlight"></div>
 </div>
 
-<div class="marquee" aria-hidden="true"><div class="marq-track">▮ STUDY PRISON ▮ 금일 점호 마감 23:00 ▮ 미출석 시 범칙금 5,000원 부과 ▮ 성실 수감자에게는 도장이 지급됩니다 ▮ 외출은 사전 허가제 ▮ 탈옥(포기) 금지 ▮</div></div>
+<div class="marquee" aria-hidden="true"><div class="marq-track">▮ STUDY PRISON ▮ 금일 점호 마감 23:00 ▮ 미출석 시 범칙금 5,000원 부과 ▮ 성실 수감자에게는 도장이 지급됩니다 ▮ 탈옥(포기) 금지 ▮</div></div>
 
 <div class="wrap">
 
@@ -582,7 +582,7 @@ onAuthStateChanged(auth, async user => {
         name: user.displayName || '이름없음', photoURL: user.photoURL || '',
         email: user.email, startDate: todayStr(), joinedAt: Date.now(),
         stamp: 'paw',
-        proofs: {}, dayoffs: {}, paid: {}, retro: {}, retroP: {}
+        proofs: {}, dayoffs: {}, paid: {}
       });
     } else {
       const d = snap.data(), fix = {};
@@ -592,7 +592,7 @@ onAuthStateChanged(auth, async user => {
     }
     // 이미 문서가 있으면 이름/사진/도장은 건드리지 않음 (커스텀 유지!)
   } catch(e) {
-    toast('접근 거부! Firestore 규칙에 네 이메일이 등록됐는지 확인해줘 🔒');
+    toast('접근 거부! Firestore 규칙이 잘 게시됐는지 확인해줘 🔒');
     console.error(e); return;
   }
 
@@ -641,31 +641,7 @@ function compressStamp(file, max=140) {
   });
 }
 
-/* ── 공부 증거 제출 ──
-   (조용한 기능: 달력에서 지난 날짜 모달을 열면 같은 버튼이 있고,
-    지난 날 출석 인정은 그 날짜가 속한 달마다 딱 1번. 화면엔 아무 표시 없음) */
-const retroProofDate = (m, month) => // 이 달(YYYY-MM)에 이미 쓴 소급 출석 날짜
-  Object.keys(m?.retroP||{}).find(s => s.slice(0,7) === month && m.proofs?.[s]);
-async function submitProofs(date, files) {
-  const m = members[me.uid] || {};
-  const isPast = date < todayStr();
-  const needFlip = !m.proofs?.[date]; // 그날 출석이 아직 아니면 → 출석으로 전환 필요
-  if (isPast && needFlip) {
-    if (m.startDate && date < m.startDate) { toast('입소 전 날짜야!'); return false; }
-    const used = retroProofDate(m, date.slice(0,7));
-    if (used) { toast(`이번 건 이미 ${fmtDate(used)}에 썼어! (한 달에 1번)`); return false; }
-  }
-  for (const f of files) {
-    const img = await compress(f);
-    await addDoc(collection(db,'photos'), { uid: me.uid, date, kind:'proof', img, ts: Date.now() });
-  }
-  if (needFlip) {
-    const upd = { ['proofs.'+date]: true };
-    if (isPast) upd['retroP.'+date] = true;
-    await updateDoc(doc(db,'status',me.uid), upd);
-  }
-  return true;
-}
+/* ── 공부 증거 제출 (오늘만 가능) ── */
 $('btn-proof').onclick = () => $('proof-file').click();
 $('proof-file').onchange = async e => {
   const files = [...e.target.files]; e.target.value = '';
@@ -673,12 +649,14 @@ $('proof-file').onchange = async e => {
   $('btn-proof').disabled = true; $('btn-proof').textContent = '증거 등록 중... ⏳';
   const date = todayStr();
   try {
-    const ok = await submitProofs(date, files);
-    if (ok) {
-      try { const c = await caches.open('prison-v1'); await c.put('__proof_done_'+date, new Response('1')); } catch(_){}
-      $('stamp').classList.remove('show'); void $('stamp').offsetWidth; $('stamp').classList.add('show');
-      toast('출석 확인! 오늘도 성실 수감 완료 ⛓️');
+    for (const f of files) {
+      const img = await compress(f);
+      await addDoc(collection(db,'photos'), { uid: me.uid, date, kind:'proof', img, ts: Date.now() });
     }
+    await updateDoc(doc(db,'status',me.uid), { ['proofs.'+date]: true });
+    try { const c = await caches.open('prison-v1'); await c.put('__proof_done_'+date, new Response('1')); } catch(_){}
+    $('stamp').classList.remove('show'); void $('stamp').offsetWidth; $('stamp').classList.add('show');
+    toast('출석 확인! 오늘도 성실 수감 완료 ⛓️');
   } catch(err) {
     console.error(err);
     toast(err.message==='too big' ? '사진이 너무 커! 다른 사진으로 해줘 🙏' : '제출 실패… 다시 해줘!');
@@ -686,7 +664,7 @@ $('proof-file').onchange = async e => {
   $('btn-proof').disabled = false; $('btn-proof').textContent = '📷 공부 증거 제출하기';
 };
 
-/* ── 범칙금 계산: 시작일~어제 중 인증X & 외출X ── */
+/* ── 범칙금 계산: 시작일~어제 중 인증X & 데이오프X ── */
 function fineDates(m) {
   const out = [];
   if (!m.startDate) return out;
@@ -923,43 +901,27 @@ function payFine(date) {
   inp.click();
 }
 
-/* ── 데이오프 ──
-   미래/오늘: 자유롭게 등록
-   지난 날: 소급 등록 — 그 날짜가 속한 달마다 딱 1번!
-   (소급 등록된 건 retro 맵에 표시해서 구분) */
+/* ── 데이오프 (오늘 포함 미래만) ── */
 $('dayoff-date').value = todayStr();
-const retroUsedDate = (m, month) => // 이 달(YYYY-MM)에 이미 쓴 소급 데이오프 날짜
-  Object.keys(m?.retro||{}).find(s => s.slice(0,7) === month && m.dayoffs?.[s]);
+$('dayoff-date').min = todayStr();
 $('btn-dayoff').onclick = async () => {
   const s = $('dayoff-date').value;
   if (!s || !me) return;
+  if (s < todayStr()) { toast('지난 날은 등록이 안 돼~ 😅'); return; }
   const m = members[me.uid] || {};
   if (m.dayoffs?.[s]) { toast('이미 데이오프로 등록된 날이야!'); return; }
-  if (s < todayStr()) { // 지난 날 소급 등록
-    if (m.proofs?.[s]) { toast('그날은 이미 출석했어! 데이오프가 필요 없어 😎'); return; }
-    if (m.startDate && s < m.startDate) { toast('입소 전 날짜야!'); return; }
-    const used = retroUsedDate(m, s.slice(0,7));
-    if (used) { toast(`이번 건 이미 ${fmtDate(used)}에 썼어! (한 달에 1번)`); return; }
-    await updateDoc(doc(db,'status',me.uid), { ['dayoffs.'+s]: true, ['retro.'+s]: true });
-    toast(`${fmtDate(s)} 데이오프 등록! 🎫`);
-    return;
-  }
   await updateDoc(doc(db,'status',me.uid), { ['dayoffs.'+s]: true });
   toast(`${fmtDate(s)} 데이오프 등록! 🎫`);
 };
 function renderDayoffs() {
   const m = members[me?.uid]; if (!m) return;
   const t = todayStr();
-  const future = Object.keys(m.dayoffs||{}).filter(s=>s>=t).sort();
-  const retro = Object.keys(m.dayoffs||{}).filter(s=>s<t && m.retro?.[s]).sort().reverse().slice(0,3);
-  const chips =
-    future.map(s => `<span class="chip">🎫 ${fmtDate(s)} <button data-d="${s}" aria-label="취소">✕</button></span>`).join('') +
-    retro.map(s => `<span class="chip" style="border-color:#8A94A6;color:#5B6472">🎫 ${fmtDate(s)} <button data-d="${s}" data-r="1" aria-label="취소">✕</button></span>`).join('');
-  $('dayoff-list').innerHTML = chips || `<p class="hint">등록된 데이오프 없음</p>`;
+  const list = Object.keys(m.dayoffs||{}).filter(s=>s>=t).sort();
+  $('dayoff-list').innerHTML = list.map(s =>
+    `<span class="chip">🎫 ${fmtDate(s)} <button data-d="${s}" aria-label="취소">✕</button></span>`).join('') ||
+    `<p class="hint">등록된 데이오프 없음</p>`;
   $('dayoff-list').querySelectorAll('button').forEach(b => b.onclick = async () => {
-    const upd = { ['dayoffs.'+b.dataset.d]: deleteField() };
-    if (b.dataset.r) upd['retro.'+b.dataset.d] = deleteField(); // 소급 취소 → 그 달 1회권 반환
-    await updateDoc(doc(db,'status',me.uid), upd);
+    await updateDoc(doc(db,'status',me.uid), { ['dayoffs.'+b.dataset.d]: deleteField() });
     toast('데이오프 취소 완료!');
   });
 }
@@ -1066,9 +1028,6 @@ async function openPhotos(date) {
   $('modal-title').textContent = `${fmtDate(date)} 기록 열람`;
   $('modal-body').innerHTML = `
     <div id="mb-photos"><p class="hint">기록 조회 중… ⏳</p></div>
-    ${date <= todayStr() ? `
-    <input type="file" id="mb-proof-file" accept="image/*" multiple class="hidden">
-    <button class="btn big blue" id="mb-proof-btn" style="margin-bottom:14px">📷 공부 증거 제출하기</button>` : ''}
     <div class="cmt-box">
       <div class="cmt-title">🖊️ 면회 기록</div>
       <div id="mb-cmts"><p class="hint">조회 중…</p></div>
@@ -1078,26 +1037,6 @@ async function openPhotos(date) {
       </div>
     </div>`;
   $('modal').classList.add('open');
-  if ($('mb-proof-btn')) {
-    $('mb-proof-btn').onclick = () => $('mb-proof-file').click();
-    $('mb-proof-file').onchange = async e => {
-      const files = [...e.target.files]; e.target.value = '';
-      if (!files.length || !me) return;
-      $('mb-proof-btn').disabled = true; $('mb-proof-btn').textContent = '증거 등록 중... ⏳';
-      try {
-        const ok = await submitProofs(date, files);
-        if (ok) {
-          toast('출석 확인! ⛓️');
-          openPhotos(date); // 새로고침해서 방금 올린 사진 표시
-          return;
-        }
-      } catch(err) {
-        console.error(err);
-        toast(err.message==='too big' ? '사진이 너무 커! 다른 사진으로 해줘 🙏' : '제출 실패… 다시 해줘!');
-      }
-      $('mb-proof-btn').disabled = false; $('mb-proof-btn').textContent = '📷 공부 증거 제출하기';
-    };
-  }
   $('cmt-send').onclick = () => postComment($('cmt-input'), null);
   $('cmt-input').onkeydown = e => { if (e.key==='Enter' && !e.isComposing) postComment($('cmt-input'), null); };
 
