@@ -659,7 +659,7 @@ const firebaseConfig = {
 /* ═══════════════════════════════════════════════════ */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut }
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteField, deleteDoc,
   collection, onSnapshot, addDoc, query, where, getDocs }
@@ -811,10 +811,49 @@ try {
   db = getFirestore(app);
 } catch(e) { console.warn(e); }
 
-/* ── 로그인 ── */
+/* ── 로그인 ──
+   팝업이 막히는 환경(설치된 앱 화면, 카톡/인스타 인앱 브라우저, 아이폰 사파리 등)에서는
+   자동으로 리디렉션 방식으로 다시 시도해서 로그인이 되게 함 */
+const AUTH_MSG = {
+  'auth/unauthorized-domain':'이 주소가 Firebase에 등록 안 됨! 콘솔 → Authentication → 설정 → 승인된 도메인에 추가해줘 🔧',
+  'auth/operation-not-allowed':'구글 로그인이 꺼져 있어! 콘솔 → Authentication → 로그인 방법에서 켜줘 🔧',
+  'auth/popup-closed-by-user':'로그인 창이 닫혔어. 다시 눌러줘!',
+  'auth/cancelled-popup-request':'다시 한 번 눌러줘!',
+  'auth/network-request-failed':'네트워크 오류! 인터넷 확인하고 다시 해줘 📶',
+  'auth/internal-error':'일시적인 오류야. 새로고침하고 다시 해줘!',
+};
+const POPUP_FAIL = ['auth/popup-blocked','auth/operation-not-supported-in-this-environment',
+  'auth/popup-closed-by-user','auth/cancelled-popup-request','auth/web-storage-unsupported'];
+
+// 리디렉션으로 돌아왔을 때 결과 처리
+getRedirectResult(auth).catch(e => {
+  console.error(e);
+  if (e?.code) toast(AUTH_MSG[e.code] || ('로그인 실패! ' + e.code));
+});
+
 $('btn-login').onclick = async () => {
-  try { await signInWithPopup(auth, new GoogleAuthProvider()); }
-  catch(e) { toast('로그인 실패! ' + (e.code||'')); console.error(e); }
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
+  $('btn-login').disabled = true;
+  try {
+    await signInWithPopup(auth, provider);
+  } catch(e) {
+    console.error(e);
+    if (POPUP_FAIL.includes(e?.code)) {
+      // 팝업이 안 되는 환경 → 페이지 이동 방식으로 재시도
+      try {
+        toast('로그인 창으로 이동할게! 잠시만…');
+        await signInWithRedirect(auth, provider);
+        return;
+      } catch(e2) {
+        console.error(e2);
+        toast(AUTH_MSG[e2?.code] || ('로그인 실패! ' + (e2?.code||'')));
+      }
+    } else {
+      toast(AUTH_MSG[e?.code] || ('로그인 실패! ' + (e?.code||'')));
+    }
+  }
+  $('btn-login').disabled = false;
 };
 $('btn-logout').onclick = () => signOut(auth);
 
