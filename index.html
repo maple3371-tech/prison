@@ -167,6 +167,8 @@ body{
 .member .nm{font-size:14px; margin-bottom:3px; word-break:keep-all;}
 .member .bio{font-size:10px; color:#6B7482; margin-bottom:6px; word-break:break-word; line-height:1.45;}
 .member .st{font-size:11px; display:inline-block; border:2px solid var(--ink); border-radius:3px; padding:3px 8px; letter-spacing:.06em;}
+.member .pcount{font-size:10px; color:#6B7482; margin-top:5px;}
+body[data-theme="trip"] .member .pcount{color:#5E8FA2;}
 .st.done{background:var(--blue); color:var(--white); border-color:var(--navy);}
 .st.off{background:var(--white); color:var(--blue); border-style:dashed; border-color:var(--blue);}
 .st.not{background:#EDEDEA; color:#6B7482;}
@@ -692,7 +694,8 @@ const THEMES = {
     tabDay:'🎫 데이오프', tabDayEn:'DAY OFF',
     caseWord:'CASE NO. SP-', dueLabel:'점호 마감 23:00',
     proofBtn:'📷 공부 증거 제출하기', proofLoading:'증거 등록 중... ⏳',
-    proofHint:'증거 사진은 자동으로 압축돼서 기록돼. (하루 1장 이상 제출 시 출석 인정)',
+    proofMore:'📷 증거 더 제출하기',
+    proofHint:'사진은 여러 장 한꺼번에 골라도 되고, 하루 종일 계속 추가해도 돼! (1장 이상이면 출석 인정)',
     sealHtml:'출석<br>확인<small>CONFIRMED</small>',
     stDone:'출석 확인 ✔', stOff:'데이오프 🎫', stNot:'미출석 …',
     emptyCard:'🗃️ 빈 감방<br>새 수감자가 입소하면<br>여기 수감됩니다',
@@ -727,7 +730,8 @@ const THEMES = {
     tabDay:'🏝️ 데이오프', tabDayEn:'DAY OFF',
     caseWord:'FLIGHT NO. ST-', dueLabel:'체크인 마감 23:00',
     proofBtn:'📷 오늘의 공부 인증하기', proofLoading:'인증 등록 중... ⏳',
-    proofHint:'인증 사진은 자동으로 압축돼서 기록돼. (하루 1장 이상 제출 시 탑승 인정)',
+    proofMore:'📷 인증 더 추가하기',
+    proofHint:'사진은 여러 장 한꺼번에 골라도 되고, 하루 종일 계속 추가해도 돼! (1장 이상이면 탑승 인정)',
     sealHtml:'탑승<br>완료<small>BOARDED</small>',
     stDone:'탑승 완료 ✈', stOff:'데이오프 🏝️', stNot:'탑승 대기 …',
     emptyCard:'💺 빈 좌석<br>새 여행자가 탑승하면<br>여기 앉게 돼요',
@@ -777,7 +781,7 @@ function applyTheme(id) {
   $('cno-1').textContent = t.caseWord + '01';
   $('cno-2').textContent = t.caseWord + '02';
   $('cno-5').textContent = t.caseWord + '05';
-  if (!$('btn-proof').disabled) $('btn-proof').textContent = t.proofBtn;
+  if (!$('btn-proof').disabled) updateProofBtn();
   $('proof-hint').textContent = t.proofHint;
   $('stamp').innerHTML = t.sealHtml;
   $('cal-hint').textContent = t.calHint;
@@ -796,7 +800,7 @@ if (firebaseConfig.apiKey === "붙여넣기") {
   $('btn-login').disabled = true;
 }
 
-let app, auth, db, me = null, members = {}, unsub = null, unsubC = null, allCmts = [];
+let app, auth, db, me = null, members = {}, unsub = null, unsubC = null, allCmts = [], unsubP = null, todayPhotos = [];
 let view = new Date();
 
 applyTheme(themeId); // 시작하자마자 저장된 테마 적용 (로그인 화면 포함)
@@ -822,6 +826,7 @@ onAuthStateChanged(auth, async user => {
     $('bottombar').classList.add('hidden');
     if (unsub) { unsub(); unsub = null; }
     if (unsubC) { unsubC(); unsubC = null; allCmts = []; }
+    if (unsubP) { unsubP(); unsubP = null; todayPhotos = []; }
     return;
   }
   $('login-view').classList.add('hidden');
@@ -871,6 +876,14 @@ onAuthStateChanged(auth, async user => {
     renderNotif(); renderCal();
   }, e => console.error(e));
 
+  // 오늘 올라온 사진 구독 → 몇 장 올렸는지 표시
+  if (unsubP) unsubP();
+  unsubP = onSnapshot(query(collection(db,'photos'), where('date','==',todayStr())), qs => {
+    todayPhotos = [];
+    qs.forEach(d => { const p = d.data(); todayPhotos.push({ uid: p.uid, kind: p.kind }); });
+    updateProofBtn(); renderDuo();
+  }, e => console.error(e));
+
   scheduleReminderCheck();
 });
 
@@ -910,27 +923,41 @@ function compressStamp(file, max=140) {
   });
 }
 
-/* ── 공부 인증 제출 (오늘만 가능) ── */
+/* ── 공부 인증 제출 (오늘만 가능 · 여러 장 OK) ── */
+const proofCount = uid => todayPhotos.filter(p => p.uid === uid && p.kind === 'proof').length;
+function updateProofBtn() {
+  const n = proofCount(me?.uid);
+  $('btn-proof').textContent = n ? `${TH().proofMore} (오늘 ${n}장)` : TH().proofBtn;
+}
 $('btn-proof').onclick = () => $('proof-file').click();
 $('proof-file').onchange = async e => {
   const files = [...e.target.files]; e.target.value = '';
   if (!files.length || !me) return;
-  $('btn-proof').disabled = true; $('btn-proof').textContent = TH().proofLoading;
+  $('btn-proof').disabled = true;
   const date = todayStr();
+  let done = 0;
   try {
     for (const f of files) {
+      $('btn-proof').textContent = files.length > 1
+        ? `${TH().proofLoading} (${done+1}/${files.length})` : TH().proofLoading;
       const img = await compress(f);
       await addDoc(collection(db,'photos'), { uid: me.uid, date, kind:'proof', img, ts: Date.now() });
+      done++;
     }
     await updateDoc(doc(db,'status',me.uid), { ['proofs.'+date]: true });
     try { const c = await caches.open('prison-v1'); await c.put('__proof_done_'+date, new Response('1')); } catch(_){}
     $('stamp').classList.remove('show'); void $('stamp').offsetWidth; $('stamp').classList.add('show');
-    toast(TH().attendToast);
+    toast(done > 1 ? `${done}장 등록 완료! ${TH().attendToast}` : TH().attendToast);
   } catch(err) {
     console.error(err);
-    toast(err.message==='too big' ? '사진이 너무 커! 다른 사진으로 해줘 🙏' : '제출 실패… 다시 해줘!');
+    if (done) { // 일부라도 올라갔으면 출석은 인정
+      await updateDoc(doc(db,'status',me.uid), { ['proofs.'+date]: true }).catch(()=>{});
+      toast(`${done}장은 등록됐어! 나머지는 다시 시도해줘 🙏`);
+    } else {
+      toast(err.message==='too big' ? '사진이 너무 커! 다른 사진으로 해줘 🙏' : '제출 실패… 다시 해줘!');
+    }
   }
-  $('btn-proof').disabled = false; $('btn-proof').textContent = TH().proofBtn;
+  $('btn-proof').disabled = false; updateProofBtn();
 };
 
 /* ── 벌금 계산: 시작일~어제 중 인증X & 데이오프X ── */
@@ -1104,12 +1131,14 @@ function renderDuo() {
     const st = m.proofs?.[t] ? `<span class="st done">${TH().stDone}</span>`
              : m.dayoffs?.[t] ? `<span class="st off">${TH().stOff}</span>`
              : `<span class="st not">${TH().stNot}</span>`;
+    const n = proofCount(uid);
+    const cnt = n ? `<div class="pcount">📸 오늘 ${n}장</div>` : '';
     html += `<div class="member ${isMe?'me-card':''}">
       <div class="mug"><img src="${m.photoURL||'icon-192.png'}" alt=""><br>
       <span class="plate">${memberNo(uid)}</span></div>
       <div class="low">
         <div class="nm">${esc(m.name)}${isMe?' (나)':''}</div>
-        ${m.bio ? `<div class="bio">${TH().bioPrefix}${esc(m.bio)}</div>` : ''}${st}
+        ${m.bio ? `<div class="bio">${TH().bioPrefix}${esc(m.bio)}</div>` : ''}${st}${cnt}
       </div></div>`;
   }
   html += `<div class="member empty">${TH().emptyCard}</div>`;
