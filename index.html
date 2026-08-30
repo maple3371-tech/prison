@@ -1170,9 +1170,11 @@ function svgToImg(src) {
     const im = new Image();
     im.onload = () => res(im);
     im.onerror = rej;
-    im.src = src.trim().startsWith('<svg')
-      ? 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(src)
-      : src;
+    if (src.trim().startsWith('<svg')) {
+      // 브라우저가 크기를 못 읽는 경우가 있어 명시적으로 넣어줌 (프리셋은 정사각형)
+      const sized = src.replace('<svg', '<svg width="240" height="240"');
+      im.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(sized);
+    } else im.src = src;
   });
 }
 async function exportStampBoard() {
@@ -1204,7 +1206,12 @@ async function exportStampBoard() {
     g.strokeStyle = C.ink; g.lineWidth = 4; g.strokeRect(14, 14, W-28, H-28);
 
     try { await document.fonts.ready; } catch(_){}
-    const F = q => `${q}px 'DungGeunMo','Apple SD Gothic Neo',sans-serif`;
+    // 내가 고른 글씨체 그대로 사용
+    const ft = FONTS.find(x => x.id === (m.font || 'dgm')) || FONTS[0];
+    const FAM = `${ft.css},'DungGeunMo','Apple SD Gothic Neo',sans-serif`;
+    const big = ['dongle','cute','pen'].includes(ft.id) ? 1.22 : 1;  // 작게 나오는 글씨체 보정
+    const F = q => `${Math.round(q*big)}px ${FAM}`;
+    try { await Promise.all([22,40,26,17,19].map(q => document.fonts.load(F(q)))); } catch(_){}
 
     const cnt = Object.keys(m.proofs||{}).filter(s =>
       s.startsWith(`${y}-${String(mo+1).padStart(2,'0')}`)).length;
@@ -1246,9 +1253,15 @@ async function exportStampBoard() {
       g.setLineDash(on ? [] : [6, 6]); g.stroke(); g.setLineDash([]);
 
       if (on && art[d]) {
-        const sz = cell * 0.62, rot = (((d*37)%21) - 10) * Math.PI/180;
+        const im = art[d];
+        const box = cell * 0.66;
+        // 원본 비율 유지 (정사각형으로 찌그러지지 않게)
+        const iw = im.naturalWidth || im.width || 1, ih = im.naturalHeight || im.height || 1;
+        const sc = Math.min(box / iw, box / ih);
+        const w = iw * sc, hgt = ih * sc;
+        const rot = (((d*37)%21) - 10) * Math.PI/180;
         g.save(); g.translate(cx, cy); g.rotate(rot);
-        g.drawImage(art[d], -sz/2, -sz/2, sz, sz); g.restore();
+        g.drawImage(im, -w/2, -hgt/2, w, hgt); g.restore();
       }
       g.fillStyle = on ? C.sub : C.dash; g.font = F(17); g.textAlign = 'center';
       g.fillText(String(d), cx + rad*0.44, cy + rad*0.66);
