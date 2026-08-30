@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>STUDY PRISON ▮ 공부 수감 일지</title>
 <link rel="manifest" href="manifest.json">
-<link rel="icon" href="icon-192.png">
-<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192-v2.png">
+<link rel="apple-touch-icon" href="icon-192-v2.png">
 <meta name="theme-color" content="#0B0E14">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -53,9 +53,9 @@ body{
   animation:sweep 26s ease-in-out infinite alternate;
 }
 @keyframes sweep{from{transform:translateX(0) rotate(-6deg)}to{transform:translateX(120%) rotate(6deg)}}
-.sun,.cloud,.grass,.plane{display:none;}
+.sun,.cloud,.grass{display:none;}
 @media (prefers-reduced-motion:reduce){
-  .searchlight,.stamp,.marq-track,.cloud,.plane{animation:none !important;}
+  .searchlight,.stamp,.marq-track,.cloud{animation:none !important;}
 }
 
 /* ── 상단 전광판 ── */
@@ -92,13 +92,14 @@ body{
 }
 .win-body{padding:16px 14px 16px 26px; position:relative;}
 .case-no{
-  position:absolute; top:8px; right:12px; font-size:10px; color:var(--gray);
-  letter-spacing:.14em; text-align:right;
+  display:flex; align-items:center; justify-content:flex-end; gap:8px;
+  font-size:10px; color:var(--gray); letter-spacing:.14em;
+  margin:0 0 12px; white-space:nowrap; overflow:hidden;
 }
 .barcode{
-  height:16px; width:74px; margin-top:2px; margin-left:auto;
+  height:15px; width:66px; flex-shrink:0;
   background:repeating-linear-gradient(90deg,var(--ink) 0 2px,transparent 2px 4px,var(--ink) 4px 7px,transparent 7px 9px,var(--ink) 9px 10px,transparent 10px 13px);
-  opacity:.8;
+  opacity:.75;
 }
 
 /* ── 버튼 ── */
@@ -144,7 +145,7 @@ body{
 
 /* ── 멤버 카드 (인원수 늘어도 예쁘게) ── */
 .today-date{font-size:12px; color:#5B6472; margin-bottom:10px; letter-spacing:.06em;}
-.duo{display:grid; grid-template-columns:repeat(auto-fill, minmax(148px, 1fr)); gap:10px;}
+.duo{display:grid; grid-template-columns:repeat(auto-fill, minmax(130px, 1fr)); gap:10px;}
 .member{
   border:2px solid var(--ink); border-radius:6px; text-align:center;
   background:var(--white); overflow:hidden; display:flex; flex-direction:column;
@@ -389,15 +390,6 @@ body[data-theme="trip"] .cloud{display:block; position:absolute; background:#fff
 .c3::before{width:28px; height:28px; top:-13px; left:10px;}
 .c3::after{width:22px; height:22px; top:-8px; left:36px;}
 @keyframes drift{from{left:-160px}to{left:110%}}
-body[data-theme="trip"] .plane{
-  display:block; position:absolute; top:7%; left:-50px; font-size:20px; opacity:.9;
-  animation:fly 30s linear infinite;
-}
-@keyframes fly{
-  from{left:-50px; transform:translateY(0) rotate(10deg);}
-  50%{transform:translateY(-26px) rotate(4deg);}
-  to{left:106%; transform:translateY(4px) rotate(10deg);}
-}
 body[data-theme="trip"] .grass{
   display:block; position:absolute; left:0; right:0; bottom:0; height:120px;
   background:linear-gradient(180deg, rgba(110,196,122,0), rgba(110,196,122,.38));
@@ -411,15 +403,65 @@ body[data-theme="trip"] .file-tab{
   border-radius:12px 12px 0 0; box-shadow:3px 0 0 rgba(30,130,180,.35);
 }
 body[data-theme="trip"] .file-tab .en{color:#E6F7FF;}
+
+/* ── 티켓 모양 카드 ── */
+body[data-theme="trip"] .file .win{
+  background:linear-gradient(180deg,#4FB8EA 0%, #1E9BD7 100%);
+  padding:10px; border:2px solid var(--ink);
+  border-radius:0 16px 16px 16px;
+  box-shadow:6px 6px 0 rgba(30,130,180,.28);
+}
+body[data-theme="trip"] .file .win::before{display:none;}  /* 서류 펀치 구멍 제거 */
+body[data-theme="trip"] .file .win-body{
+  background:var(--paper); border-radius:10px;
+  padding:16px 12px 16px 40px; position:relative;
+}
+/* 절취선 + 위아래 반원 노치 (한 겹으로 처리) */
+body[data-theme="trip"] .file .win-body::before{
+  content:''; position:absolute; inset:0; pointer-events:none; z-index:1;
+  background-image:
+    radial-gradient(circle 11px at 26px 0,    #55BAEB 10.5px, transparent 11px),
+    radial-gradient(circle 11px at 26px 100%, #1E9BD7 10.5px, transparent 11px),
+    repeating-linear-gradient(180deg, rgba(14,135,198,.55) 0 7px, transparent 7px 15px);
+  background-size:100% 100%, 100% 100%, 2px 100%;
+  background-position:0 0, 0 100%, 26px 0;
+  background-repeat:no-repeat, no-repeat, no-repeat;
+}
+/* 티켓 스텁 세로 글자 */
+body[data-theme="trip"] .file .win-body::after{
+  content:'ADMIT ONE'; position:absolute; left:0px; top:50%;
+  transform:translateY(-50%) rotate(180deg); writing-mode:vertical-rl;
+  font-size:8px; letter-spacing:.32em; color:#9FC8DD; pointer-events:none;
+}
 body[data-theme="trip"] .win{
   border-radius:0 14px 14px 14px;
   box-shadow:6px 6px 0 rgba(30,130,180,.26);
 }
 body[data-theme="trip"] .win::before{border-left-color:rgba(14,135,198,.32);}
+/* 티켓 안쪽 요소들도 둥글게 */
+body[data-theme="trip"] .receipt{
+  border-radius:10px; overflow:hidden;
+  border-color:rgba(14,135,198,.55);
+}
+body[data-theme="trip"] .member{border-radius:10px; border-color:rgba(14,135,198,.55);}
+body[data-theme="trip"] .cell{border-radius:5px;}
+body[data-theme="trip"] .barcode{opacity:.55;}
 body[data-theme="trip"] .board{
-  border-radius:10px;
+  border-radius:14px; position:relative; overflow:hidden;
   background-image:repeating-linear-gradient(0deg, transparent 0 34px, rgba(14,135,198,.15) 34px 36px);
   box-shadow:8px 8px 0 rgba(30,130,180,.3);
+  padding:26px 22px 34px;
+}
+/* 아래쪽 절취선 + 양옆 노치 */
+body[data-theme="trip"] .board::before{
+  content:''; position:absolute; inset:0; pointer-events:none;
+  background-image:
+    radial-gradient(circle 12px at 0    calc(100% - 84px), #BFE3F7 11.5px, transparent 12px),
+    radial-gradient(circle 12px at 100% calc(100% - 84px), #BFE3F7 11.5px, transparent 12px),
+    repeating-linear-gradient(90deg, rgba(14,135,198,.5) 0 8px, transparent 8px 16px);
+  background-size:100% 100%, 100% 100%, 100% 2px;
+  background-position:0 0, 0 0, 0 calc(100% - 84px);
+  background-repeat:no-repeat, no-repeat, no-repeat;
 }
 body[data-theme="trip"] .board::after{content:'BOARDING PASS'; border-color:#0E87C6; color:#0E87C6; background:rgba(255,255,255,.85);}
 body[data-theme="trip"] #login-view{color:var(--ink);}
@@ -471,7 +513,6 @@ body[data-theme="trip"] code{background:#E0F3FD;}
   <div class="cloud c1"></div>
   <div class="cloud c2"></div>
   <div class="cloud c3"></div>
-  <div class="plane">✈️</div>
   <div class="grass"></div>
 </div>
 
@@ -681,7 +722,7 @@ const THEMES = {
   prison: {
     label:'감옥', emoji:'⛓️', desc:'CASE FILE',
     docTitle:'STUDY PRISON ▮ 공부 수감 일지', themeColor:'#0B0E14',
-    marq:'▮ STUDY PRISON ▮ 금일 점호 마감 23:00 ▮ 미출석 시 범칙금 5,000원 부과 ▮ 성실 수감자에게는 도장이 지급됩니다 ▮ 탈옥(포기) 금지 ▮',
+    marq:'▮ STUDY PRISON ▮ 미출석 시 범칙금 5,000원 부과 ▮ 성실 수감자에게는 도장이 지급됩니다 ▮ 탈옥(포기) 금지 ▮',
     loginEmoji:'⛓️', loginTitle:'STUDY PRISON', loginSub:'CASE FILE · 공부 수감 일지',
     loginBtn:'🔑 신원 확인 후 입소하기', loginLine:'본 시설은 허가된 수감자만<br>출입할 수 있습니다.',
     editLink:'✎ 신상 기록 수정', logoutBtn:'출소(로그아웃)',
@@ -690,7 +731,7 @@ const THEMES = {
     tabStamp:'🏅 모범수 도장판', tabStampEn:'MERIT BOARD',
     tabFine:'💸 범칙금 고지서', tabFineEn:'PENALTY NOTICE',
     tabDay:'🎫 데이오프', tabDayEn:'DAY OFF',
-    caseWord:'CASE NO. SP-', dueLabel:'점호 마감 23:00',
+    caseWord:'CASE NO. SP-', dueLabel:'',
     proofBtn:'📷 공부 증거 제출하기', proofLoading:'증거 등록 중... ⏳',
     proofHint:'증거 사진은 자동으로 압축돼서 기록돼. (하루 1장 이상 제출 시 출석 인정)',
     sealHtml:'출석<br>확인<small>CONFIRMED</small>',
@@ -716,7 +757,7 @@ const THEMES = {
   trip: {
     label:'여름 여행', emoji:'☀️', desc:'BOARDING PASS',
     docTitle:'STUDY TRIP ☀️ 공부 여행 티켓', themeColor:'#1E9BD7',
-    marq:'☀️ STUDY TRIP ✈️ 오늘의 체크인 마감 23:00 🌿 미탑승 시 연착 벌금 5,000원 ✈️ 성실 여행자에게는 스탬프가 지급됩니다 🏝️ 즐거운 공부 여행 되세요! ☁️',
+    marq:'☀️ STUDY TRIP 🌿 미탑승 시 연착 벌금 5,000원 ✈️ 성실 여행자에게는 스탬프가 지급됩니다 🏝️ 즐거운 공부 여행 되세요! ☁️',
     loginEmoji:'✈️', loginTitle:'STUDY TRIP', loginSub:'BOARDING PASS · 공부 여행 티켓',
     loginBtn:'🎫 티켓 확인 후 탑승하기', loginLine:'본 항공편은 티켓을 가진<br>여행자만 탑승할 수 있어요.',
     editLink:'✎ 프로필 수정', logoutBtn:'체크아웃',
@@ -725,7 +766,7 @@ const THEMES = {
     tabStamp:'🌿 스탬프 투어', tabStampEn:'STAMP TOUR',
     tabFine:'🧾 연착 벌금', tabFineEn:'DELAY FEE',
     tabDay:'🏝️ 데이오프', tabDayEn:'DAY OFF',
-    caseWord:'FLIGHT NO. ST-', dueLabel:'체크인 마감 23:00',
+    caseWord:'FLIGHT NO. ST-', dueLabel:'',
     proofBtn:'📷 오늘의 공부 인증하기', proofLoading:'인증 등록 중... ⏳',
     proofHint:'인증 사진은 자동으로 압축돼서 기록돼. (하루 1장 이상 제출 시 탑승 인정)',
     sealHtml:'탑승<br>완료<small>BOARDED</small>',
@@ -827,7 +868,7 @@ onAuthStateChanged(auth, async user => {
   $('login-view').classList.add('hidden');
   $('app-view').classList.remove('hidden');
   $('bottombar').classList.remove('hidden');
-  $('my-avatar').src = user.photoURL || 'icon-192.png';
+  $('my-avatar').src = user.photoURL || 'icon-192-v2.png';
   $('my-name').textContent = user.displayName || '나';
 
   const ref = doc(db, 'status', user.uid);
@@ -923,7 +964,7 @@ $('proof-file').onchange = async e => {
       await addDoc(collection(db,'photos'), { uid: me.uid, date, kind:'proof', img, ts: Date.now() });
     }
     await updateDoc(doc(db,'status',me.uid), { ['proofs.'+date]: true });
-    try { const c = await caches.open('prison-v1'); await c.put('__proof_done_'+date, new Response('1')); } catch(_){}
+    try { const c = await caches.open('study-v2'); await c.put('__proof_done_'+date, new Response('1')); } catch(_){}
     $('stamp').classList.remove('show'); void $('stamp').offsetWidth; $('stamp').classList.add('show');
     toast(TH().attendToast);
   } catch(err) {
@@ -1053,7 +1094,7 @@ function renderNotif() {
 
 function renderUserbar() {
   const m = members[me?.uid]; if (!m) return;
-  $('my-avatar').src = m.photoURL || 'icon-192.png';
+  $('my-avatar').src = m.photoURL || 'icon-192-v2.png';
   $('my-name').textContent = m.name || '나';
   if (!$('pmodal').classList.contains('open')) applyFont(m.font);
 }
@@ -1095,7 +1136,8 @@ function renderStamps() {
 function renderDuo() {
   const t = todayStr();
   const d = new Date();
-  $('today-label').textContent = `${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일 · ${TH().dueLabel}`;
+  $('today-label').textContent = `${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일`
+    + (TH().dueLabel ? ` · ${TH().dueLabel}` : '');
   const uids = orderedUids();
   let html = '';
   for (const uid of uids) {
@@ -1105,7 +1147,7 @@ function renderDuo() {
              : m.dayoffs?.[t] ? `<span class="st off">${TH().stOff}</span>`
              : `<span class="st not">${TH().stNot}</span>`;
     html += `<div class="member ${isMe?'me-card':''}">
-      <div class="mug"><img src="${m.photoURL||'icon-192.png'}" alt=""><br>
+      <div class="mug"><img src="${m.photoURL||'icon-192-v2.png'}" alt=""><br>
       <span class="plate">${memberNo(uid)}</span></div>
       <div class="low">
         <div class="nm">${esc(m.name)}${isMe?' (나)':''}</div>
@@ -1304,7 +1346,7 @@ $('btn-profile').onclick = () => {
   pickStamp = m.stamp || 'paw';
   pickTheme = THEMES[m.theme] ? m.theme : themeId;
   themeBefore = themeId; // 저장 안 하고 닫으면 되돌리기용
-  $('p-preview').src = m.photoURL || 'icon-192.png';
+  $('p-preview').src = m.photoURL || 'icon-192-v2.png';
   $('p-name').value = m.name || '';
   $('p-bio').value = m.bio || '';
   $('p-font').value = m.font || 'dgm';
@@ -1402,7 +1444,7 @@ function renderComments() {
   const tops = list.filter(c=>!c.parent);
   const repsOf = id => list.filter(c=>c.parent===id);
   const one = c => `<div class="cmt ${c.parent?'cmt-reply':''} ${c.uid===me?.uid?'cmt-mine':''}">
-    <img src="${members[c.uid]?.photoURL||'icon-192.png'}" alt="">
+    <img src="${members[c.uid]?.photoURL||'icon-192-v2.png'}" alt="">
     <div class="cmt-main">
       <span class="cmt-nm">${esc(members[c.uid]?.name||'?')}</span><span class="cmt-tm">${fmtTs(c.ts)}</span>
       ${c.uid===me?.uid?`<button class="cmt-x" data-id="${c.id}" aria-label="삭제">✕</button>`:''}
