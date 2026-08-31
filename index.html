@@ -56,6 +56,7 @@ body{
 .sun,.cloud,.grass{display:none;}
 @media (prefers-reduced-motion:reduce){
   .searchlight,.stamp,.marq-track,.cloud{animation:none !important;}
+  body[data-theme="autumn"] .cloud{display:none !important;}
 }
 
 /* ── 상단 전광판 ── */
@@ -269,14 +270,14 @@ input[type=date]{font-family:inherit; font-size:14px; border:2px solid var(--ink
 
 /* 테마 & 도장 고르기 */
 .pick-title{font-size:12px; margin:6px 0 8px; letter-spacing:.06em;}
-.theme-pick{display:grid; grid-template-columns:1fr 1fr; gap:8px; width:100%; max-width:280px;}
+.theme-pick{display:grid; grid-template-columns:repeat(3,1fr); gap:7px; width:100%; max-width:280px;}
 .tp-opt{
   border:2px solid rgba(11,14,20,.35); border-radius:8px; background:var(--white); color:var(--ink);
-  padding:12px 6px 10px; cursor:pointer; font-family:inherit;
+  padding:11px 4px 9px; cursor:pointer; font-family:inherit;
   display:flex; flex-direction:column; align-items:center; gap:4px;
 }
-.tp-opt .big-emoji{font-size:26px; line-height:1;}
-.tp-opt small{font-size:10px; letter-spacing:.04em;}
+.tp-opt .big-emoji{font-size:24px; line-height:1;}
+.tp-opt small{font-size:9.5px; letter-spacing:0; word-break:keep-all; text-align:center;}
 .tp-opt .desc{font-size:8px; color:#8A94A6; letter-spacing:0;}
 .tp-opt.on{border-color:var(--blue); border-width:3px; box-shadow:2px 2px 0 var(--blue); background:var(--blue-soft);}
 .stamp-pick{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; width:100%; max-width:280px;}
@@ -531,6 +532,144 @@ body[data-theme="trip"] .intake-line{color:#5E8FA2;}
 body[data-theme="trip"] .logo-sub{color:#5E8FA2;}
 body[data-theme="trip"] .logo-cuff{filter:drop-shadow(3px 3px 0 rgba(30,130,180,.3));}
 body[data-theme="trip"] code{background:#E0F3FD;}
+
+/* ═══════════════════════════════════════════════════
+   🍁 가을 노트 테마 (STUDY AUTUMN)
+═══════════════════════════════════════════════════ */
+body[data-theme="autumn"]{
+  --ink:#4A3220;          /* 진한 갈색 글자 */
+  --navy:#804229;         /* Nutmeg — 탭/헤더 */
+  --navy-deep:#E7DCC2;
+  --blue:#5B5729;         /* Costa Del Sol — 포인트/스탬프 잉크 */
+  --blue-soft:#F7E9C4;    /* 옅은 은행빛 */
+  --paper:#F1EAD7;        /* Parchment */
+  --gray:#A08A6B;
+  background:
+    repeating-linear-gradient(180deg, transparent 0 33px, rgba(91,87,41,.055) 33px 34px),
+    linear-gradient(180deg, #F6F1E2 0%, #EFE6CE 55%, #E9DEC0 100%);
+  background-attachment:fixed;
+}
+body[data-theme="autumn"] .bars, body[data-theme="autumn"] .searchlight{display:none;}
+/* 은은한 햇살 */
+body[data-theme="autumn"] .sun{
+  display:block; position:absolute; top:-90px; right:-70px; width:280px; height:280px; border-radius:50%;
+  background:radial-gradient(circle, rgba(229,178,64,.30), rgba(229,178,64,0) 68%);
+}
+/* 떨어지는 단풍·은행잎 (조용하게 3장만) */
+body[data-theme="autumn"] .cloud{
+  display:block; position:absolute; width:24px; height:24px; background:none !important;
+  border-radius:0; opacity:.5 !important; background-repeat:no-repeat !important;
+  background-size:contain !important;
+}
+body[data-theme="autumn"] .cloud::before, body[data-theme="autumn"] .cloud::after{display:none;}
+body[data-theme="autumn"] .c1{
+  top:-40px; left:12%; animation:leaffall 34s linear infinite;
+  background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 2 L19 9 L24 6 L23 12 L30 12 L25 16 L30 20 L22 20 L24 26 L18 22 L17 30 L15 30 L14 22 L8 26 L10 20 L2 20 L7 16 L2 12 L9 12 L8 6 L13 9 Z' fill='%23804229'/%3E%3C/svg%3E");
+}
+body[data-theme="autumn"] .c2{
+  top:-40px; left:52%; width:22px; height:22px; animation:leaffall 46s linear infinite; animation-delay:-16s;
+  background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 21 C9 21 4 18 4 18 C6 10 10 6 16 6 C22 6 26 10 28 18 C28 18 23 21 16 21Z' fill='%23E5B240'/%3E%3Cpath d='M16 21 L16 29' stroke='%23B98A2E' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+body[data-theme="autumn"] .c3{
+  top:-40px; left:80%; width:19px; height:19px; animation:leaffall 58s linear infinite; animation-delay:-33s;
+  background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 2 L19 9 L24 6 L23 12 L30 12 L25 16 L30 20 L22 20 L24 26 L18 22 L17 30 L15 30 L14 22 L8 26 L10 20 L2 20 L7 16 L2 12 L9 12 L8 6 L13 9 Z' fill='%235B5729'/%3E%3C/svg%3E");
+}
+@keyframes leaffall{
+  0%{transform:translate(0,0) rotate(0deg);}
+  25%{transform:translate(34px,26vh) rotate(90deg);}
+  50%{transform:translate(-24px,52vh) rotate(190deg);}
+  75%{transform:translate(28px,78vh) rotate(280deg);}
+  100%{transform:translate(-10px,106vh) rotate(380deg);}
+}
+/* 바닥에 쌓인 낙엽빛 */
+body[data-theme="autumn"] .grass{
+  display:block; position:absolute; left:0; right:0; bottom:0; height:130px;
+  background:linear-gradient(180deg, rgba(229,178,64,0), rgba(169,102,61,.26));
+}
+body[data-theme="autumn"] .marquee{
+  background:linear-gradient(90deg,#804229,#A9663D); color:#FBF5E6;
+  border-bottom:3px double rgba(241,234,215,.8);
+}
+/* 인덱스 스티커 탭 */
+body[data-theme="autumn"] .file-tab{
+  background:linear-gradient(180deg,#A9663D,#804229);
+  border-color:#5C2F1C; border-radius:10px 10px 0 0;
+  box-shadow:3px 0 0 rgba(92,47,28,.3);
+}
+body[data-theme="autumn"] .file-tab .en{color:#F2DDBE;}
+/* 노트 페이지 카드 */
+body[data-theme="autumn"] .win{
+  border:2px solid #6E4B2A; border-radius:3px 14px 14px 3px;
+  box-shadow:5px 5px 0 rgba(128,66,41,.20);
+}
+body[data-theme="autumn"] .file .win-body{
+  padding:16px 14px 18px 50px;
+  background-image:repeating-linear-gradient(180deg, transparent 0 27px, rgba(91,87,41,.17) 27px 28px);
+  background-position:0 46px;
+}
+/* 왼쪽 마진선 */
+body[data-theme="autumn"] .file .win::before{
+  left:38px; border-left:2px solid rgba(128,66,41,.42);
+}
+/* 스프링 구멍 */
+body[data-theme="autumn"] .file .win::after{
+  content:''; position:absolute; left:13px; top:30px; bottom:30px; width:12px;
+  background-image:radial-gradient(circle 5px at 6px 6px, rgba(110,75,42,.26) 5px, transparent 5.5px);
+  background-size:12px 52px; background-repeat:repeat-y; pointer-events:none;
+}
+body[data-theme="autumn"] .board{
+  border:3px solid #6E4B2A; border-radius:3px 12px 12px 3px;
+  background-image:repeating-linear-gradient(180deg, transparent 0 33px, rgba(91,87,41,.18) 33px 34px);
+  box-shadow:7px 7px 0 rgba(128,66,41,.22);
+}
+body[data-theme="autumn"] .board::after{
+  content:'🍁 AUTUMN'; border-color:#804229; color:#804229; background:rgba(255,255,255,.72);
+}
+body[data-theme="autumn"] #login-view{color:var(--ink);}
+body[data-theme="autumn"] .logo-cuff{filter:drop-shadow(3px 3px 0 rgba(128,66,41,.22));}
+body[data-theme="autumn"] .logo-sub, body[data-theme="autumn"] .intake-line{color:#8A7355;}
+/* 멤버 카드 = 노트 속 사진 */
+body[data-theme="autumn"] .member{border-color:#8A6039; border-radius:4px 10px 10px 4px;}
+body[data-theme="autumn"] .mug{
+  border-bottom-color:#8A6039;
+  background:
+    radial-gradient(circle at 84% 20%, rgba(229,178,64,.55) 0 10px, rgba(229,178,64,0) 11px),
+    repeating-linear-gradient(180deg, transparent 0 16px, rgba(91,87,41,.14) 16px 17px),
+    linear-gradient(180deg,#F6EFDD,#EADFC3);
+}
+body[data-theme="autumn"] .mug img{border-color:#6E4B2A;}
+body[data-theme="autumn"] .plate{background:#804229; border-color:#A9663D;}
+body[data-theme="autumn"] .member.me-card .plate{background:#5B5729;}
+body[data-theme="autumn"] .st.not{background:#EDE5D2; color:#8A7355;}
+body[data-theme="autumn"] .member.empty{
+  background:repeating-linear-gradient(45deg,#FBF6E9,#FBF6E9 8px,#F1E9D4 8px,#F1E9D4 16px); color:#8A7355;
+}
+body[data-theme="autumn"] .today-date, body[data-theme="autumn"] .legend,
+body[data-theme="autumn"] .cell .dnum, body[data-theme="autumn"] .pv .cap{color:#7A6446;}
+body[data-theme="autumn"] .cal .dow{color:#9C8564;}
+body[data-theme="autumn"] .cell{border-color:rgba(74,50,32,.42); border-radius:4px;}
+body[data-theme="autumn"] .slot{border-color:rgba(128,66,41,.34); background:rgba(255,255,255,.6);}
+body[data-theme="autumn"] .slot.fill{border-color:#6E4B2A; background:#FDFAF1;}
+body[data-theme="autumn"] .slot .dno{color:#B8A484;}
+body[data-theme="autumn"] .receipt{border-color:#8A6039; border-radius:3px 10px 10px 3px;}
+body[data-theme="autumn"] .receipt h4{background:#804229;}
+body[data-theme="autumn"] .fine-row{border-bottom-color:rgba(74,50,32,.3);}
+body[data-theme="autumn"] .cmt-box{border-top-color:rgba(128,66,41,.3);}
+body[data-theme="autumn"] .userbar{color:var(--ink);}
+body[data-theme="autumn"] .userbar img{border-color:#6E4B2A;}
+body[data-theme="autumn"] .userbar .edit-link{color:#804229;}
+body[data-theme="autumn"] .hint, body[data-theme="autumn"] .member .bio,
+body[data-theme="autumn"] .sp-note{color:#8A7355;}
+body[data-theme="autumn"] .bottombar{background:rgba(233,222,192,.94); border-top:2px solid #A9663D;}
+body[data-theme="autumn"] .modal{background:rgba(74,50,32,.55);}
+body[data-theme="autumn"] .modal .win-bar .x{border-color:#C79A6E;}
+body[data-theme="autumn"] .stamp{background:rgba(255,255,255,.76);}
+body[data-theme="autumn"] .notif-card{box-shadow:4px 4px 0 rgba(128,66,41,.2); border-radius:3px 10px 10px 3px;}
+body[data-theme="autumn"] code{background:#EDE3CB;}
+body[data-theme="autumn"] .btn{box-shadow:3px 3px 0 #6E4B2A; border-color:#6E4B2A;}
+body[data-theme="autumn"] .btn:active{box-shadow:0 0 0 #6E4B2A;}
+body[data-theme="autumn"] .cal-nav{box-shadow:2px 2px 0 #6E4B2A; border-color:#6E4B2A;}
+body[data-theme="autumn"] .n-badge{background:#804229;}
 </style>
 </head>
 <body>
@@ -817,6 +956,42 @@ const THEMES = {
     notifyBtn:'🔔 체크인 알림 켜기', modalClose:'닫기',
     notifTitle:'📮 새 방명록 알림',
     mkColors:['#0E87C6','#1E9BD7','#58B368','#F2A03D','#7C6BC9','#2AA9A0'],
+  },
+  autumn: {
+    label:'가을 노트', emoji:'🍁', desc:'AUTUMN NOTE',
+    docTitle:'STUDY AUTUMN 🍁 가을 공부 노트', themeColor:'#E7DCC2',
+    marq:'🍁 STUDY AUTUMN 🍂 하루 한 장, 기록이 쌓이면 한 계절이 됩니다 🌰 미기록 시 벌금 5,000원 🍁',
+    loginEmoji:'🍁', loginTitle:'STUDY AUTUMN', loginSub:'AUTUMN NOTE · 가을 공부 노트',
+    loginBtn:'🍂 노트 펼치고 시작하기', loginLine:'이 노트는 함께 쓰는 친구들만<br>펼칠 수 있어요.',
+    editLink:'✎ 내 페이지 꾸미기', logoutBtn:'노트 덮기',
+    tabRoll:'🍁 오늘의 기록', tabRollEn:'TODAY',
+    tabLog:'📓 가을 일지', tabLogEn:'AUTUMN LOG',
+    tabStamp:'🍂 단풍 모으기', tabStampEn:'LEAF COLLECTION',
+    tabFine:'🌰 밀린 기록', tabFineEn:'OVERDUE',
+    tabDay:'☕ 데이오프', tabDayEn:'DAY OFF',
+    caseWord:'PAGE NO. ', dueLabel:'',
+    proofBtn:'📷 오늘 공부 기록하기', proofLoading:'기록하는 중... ⏳',
+    proofMore:'📷 기록 더 추가하기',
+    proofHint:'사진은 여러 장 한꺼번에 골라도 되고, 하루 종일 계속 추가해도 돼! (1장 이상이면 기록 인정)',
+    sealHtml:'기록<br>완료<small>RECORDED</small>',
+    stDone:'기록 완료 🍁', stOff:'데이오프 ☕', stNot:'기록 전 …',
+    emptyCard:'📖 빈 페이지<br>새 친구가 들어오면<br>여기부터 채워져요',
+    seat:'NO. ', bioPrefix:'',
+    calHint:'날짜를 누르면 그날의 기록 사진과 글을 볼 수 있어.',
+    icOff:'☕', legendWords:'✔기록 ☕데이오프 ✖벌금 💰납부완료',
+    sbSub:'단풍 스탬프 수집 현황', sbFull:'🏆 이번 달 단풍 가득! 노트 한 권 완성!! 🏆',
+    fineTitleSfx:'밀린 기록', fineZero:'빠짐없이 기록 중 🍁',
+    fineRowWord:'미기록', fineTotal:'미납 벌금',
+    dayHint:'데이오프로 등록한 날은 벌금이 없어.',
+    pmodalTitle:'📔 내 페이지 꾸미기', namePh:'이름 (12자까지)', bioPh:'한줄 소개 (예: 가을엔 역시 공부지)',
+    saveToast:'저장 완료! 🍁',
+    kindProof:'🍁 공부 기록', kindPay:'💰 벌금 납부 증빙',
+    viewSfx:'페이지 열람', cmtTitle:'🖊️ 노트 한 줄', cmtPh:'한 줄 남기기',
+    cmtEmpty:'아직 남긴 글이 없어! 첫 줄을 채워봐.', noPhotos:'이 날은 기록된 사진이 없어.',
+    attendToast:'오늘 기록 완료! 단풍 한 장 🍁',
+    notifyBtn:'🔔 기록 알림 켜기', modalClose:'페이지 덮기',
+    notifTitle:'📮 새 한 줄 알림',
+    mkColors:['#804229','#E5B240','#5B5729','#A9663D','#8C7B3F','#6E4B2A'],
   }
 };
 let themeId = localStorage.getItem('theme');
