@@ -255,10 +255,38 @@ body{
 .zero{text-align:center; padding:12px 0; font-size:13px; color:var(--blue);}
 
 /* ── 데이오프 ── */
-.dayoff-form{display:flex; gap:8px; align-items:center; flex-wrap:wrap;}
-input[type=date]{font-family:inherit; font-size:14px; border:2px solid var(--ink); border-radius:4px; padding:9px 10px; background:var(--white); color:var(--ink);}
+.dayoff-form{display:flex; gap:6px; align-items:center; flex-wrap:wrap;}
+.do-tilde{font-size:14px; opacity:.6;}
+.do-reason{
+  font-family:inherit; font-size:13px; width:100%; margin-top:8px;
+  border:2px solid var(--ink); border-radius:4px; padding:9px 10px;
+  background:var(--white); color:var(--ink);
+}
+input[type=date]{font-family:inherit; font-size:14px; border:2px solid var(--ink); border-radius:4px; padding:9px 8px; background:var(--white); color:var(--ink); min-width:0; flex:1 1 130px;}
 .chip{display:inline-flex; align-items:center; gap:6px; border:2px dashed var(--blue); background:var(--white); color:var(--navy); border-radius:3px; padding:4px 10px; font-size:12px; margin:6px 6px 0 0;}
 .chip button{border:none; background:none; font-family:inherit; cursor:pointer; font-size:12px; color:var(--ink);}
+.wk-note{font-size:11px; margin-top:10px; color:#6B7482; line-height:1.6;}
+.wk-note b{color:var(--blue);}
+
+/* 데이오프 승인 요청 */
+.req{
+  border:2px solid var(--ink); border-radius:5px; background:var(--white);
+  padding:9px 11px; margin-top:9px; font-size:12px;
+}
+.req.mine{background:var(--blue-soft);}
+.req-top{display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
+.req-top b{font-size:13px;}
+.req-days{font-size:11px; opacity:.75;}
+.req-why{font-size:11px; margin-top:4px; color:#5B6472; word-break:break-word;}
+.req-state{margin-left:auto; font-size:10px; border-radius:10px; padding:2px 9px; white-space:nowrap;}
+.req-state.wait{background:#EDEDEA; color:#6B7482;}
+.req-state.ok{background:var(--blue); color:var(--white);}
+.req-state.no{background:#C0392B; color:#fff;}
+.req-acts{display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;}
+.req-acts .btn{font-size:11px; padding:6px 12px; box-shadow:2px 2px 0 var(--ink); border-width:2px;}
+.req-acts .btn.no{background:#C0392B;}
+.req-votes{font-size:10px; color:#6B7482; margin-top:6px; line-height:1.5;}
+.req-h{font-size:12px; margin-top:16px; letter-spacing:.06em;}
 
 /* ── 프로필 모달 ── */
 .p-preview{width:96px; height:96px; border-radius:4px; border:2px solid var(--ink); object-fit:cover; box-shadow:4px 4px 0 rgba(0,0,0,.35); background:#fff;}
@@ -777,10 +805,15 @@ body[data-theme="autumn"] .n-badge{background:#804229;}
         <div class="win-body">
           <div class="case-no"><span id="cno-5"></span><div class="barcode"></div></div>
           <div class="dayoff-form">
-            <input type="date" id="dayoff-date">
+            <input type="date" id="dayoff-date" aria-label="시작 날짜">
+            <span class="do-tilde">~</span>
+            <input type="date" id="dayoff-end" aria-label="종료 날짜">
             <button class="btn" id="btn-dayoff">데이오프 등록</button>
           </div>
+          <input class="do-reason" id="dayoff-reason" maxlength="40" placeholder="사유 (2일 이상일 때 구성원에게 보여져)">
+          <div id="dayoff-week"></div>
           <div id="dayoff-list"></div>
+          <div id="dayoff-reqs"></div>
           <p class="hint" id="day-hint"></p>
         </div>
       </div>
@@ -1116,6 +1149,14 @@ onAuthStateChanged(auth, async user => {
     renderNotif(); renderCal();
   }, e => console.error(e));
 
+  // 데이오프 승인 요청 구독
+  if (unsubR) unsubR();
+  unsubR = onSnapshot(collection(db, 'requests'), qs => {
+    reqs = [];
+    qs.forEach(d => reqs.push({ id: d.id, ...d.data() }));
+    renderAll();
+  }, e => console.error(e));
+
   scheduleReminderCheck();
 });
 
@@ -1179,15 +1220,16 @@ $('proof-file').onchange = async e => {
 };
 
 /* ── 벌금 계산: 시작일~어제 중 인증X & 데이오프X ── */
-function fineDates(m) {
+function fineDates(m, uid) {
   const out = [];
   if (!m.startDate) return out;
+  const off = uid ? dayoffSet(uid) : new Set(Object.keys(m.dayoffs||{}));
   const d = new Date(m.startDate + 'T00:00:00');
   const today = todayStr();
   for (;;) {
     const s = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     if (s >= today) break;
-    if (!m.proofs?.[s] && !m.dayoffs?.[s]) out.push(s);
+    if (!m.proofs?.[s] && !off.has(s)) out.push(s);
     d.setDate(d.getDate()+1);
   }
   return out;
@@ -1360,10 +1402,16 @@ async function exportStampBoard() {
   try {
     const y = view.getFullYear(), mo = view.getMonth();
     const days = new Date(y, mo+1, 0).getDate();
-    const trip = themeId === 'trip';
-    const C = trip
-      ? { bg:'#FDFEFF', frame:'#1E9BD7', ink:'#17414E', sub:'#5E8FA2', slot:'#0E87C6', dash:'#9FC8DD' }
-      : { bg:'#F5F4EF', frame:'#122A47', ink:'#0B0E14', sub:'#5B6472', slot:'#2C5AA0', dash:'#9AA4B2' };
+    // 테마별 색 + 문구
+    const SKIN = {
+      prison:{ bg:'#F5F4EF', frame:'#122A47', ink:'#0B0E14', sub:'#5B6472', slot:'#2C5AA0', dash:'#9AA4B2',
+               head:'MERIT BOARD', unit:'도장', foot:'STUDY PRISON ⛓️ 공부 수감 일지', ruled:false },
+      trip:{   bg:'#FDFEFF', frame:'#1E9BD7', ink:'#17414E', sub:'#5E8FA2', slot:'#0E87C6', dash:'#9FC8DD',
+               head:'STAMP TOUR', unit:'스탬프', foot:'STUDY TRIP ☀️ 공부 여행 티켓', ruled:false },
+      autumn:{ bg:'#F1EAD7', frame:'#804229', ink:'#4A3220', sub:'#8A7355', slot:'#5B5729', dash:'#C0AC86',
+               head:'LEAF COLLECTION', unit:'단풍', foot:'STUDY AUTUMN 🍁 가을 공부 노트', ruled:true },
+    };
+    const C = SKIN[themeId] || SKIN.prison;
 
     const W = 880, PAD = 44, GAP = 14, COLS = 7;
     const cell = Math.floor((W - PAD*2 - GAP*(COLS-1)) / COLS);
@@ -1378,6 +1426,16 @@ async function exportStampBoard() {
     // 배경 + 프레임
     g.fillStyle = C.frame; g.fillRect(0, 0, W, H);
     g.fillStyle = C.bg;    g.fillRect(14, 14, W-28, H-28);
+    if (C.ruled) {  // 가을 테마 = 노트 줄
+      g.strokeStyle = 'rgba(91,87,41,.16)'; g.lineWidth = 2;
+      for (let yy = 96; yy < H-30; yy += 34) {
+        g.beginPath(); g.moveTo(58, yy); g.lineTo(W-30, yy); g.stroke();
+      }
+      g.strokeStyle = 'rgba(128,66,41,.34)'; g.lineWidth = 2;
+      g.beginPath(); g.moveTo(58, 20); g.lineTo(58, H-20); g.stroke();  // 마진선
+      g.fillStyle = 'rgba(110,75,42,.20)';                              // 스프링 구멍
+      for (let yy = 62; yy < H-40; yy += 56) { g.beginPath(); g.arc(36, yy, 6, 0, Math.PI*2); g.fill(); }
+    }
     g.strokeStyle = C.ink; g.lineWidth = 4; g.strokeRect(14, 14, W-28, H-28);
 
     try { await document.fonts.ready; } catch(_){}
@@ -1393,11 +1451,11 @@ async function exportStampBoard() {
 
     g.textAlign = 'center';
     g.fillStyle = C.sub;  g.font = F(22);
-    g.fillText(trip ? 'STAMP TOUR' : 'MERIT BOARD', W/2, 62);
+    g.fillText(C.head, W/2, 62);
     g.fillStyle = C.ink;  g.font = F(40);
     g.fillText(`${y}년 ${mo+1}월 · ${m.name || '나'}`, W/2, 112);
     g.fillStyle = C.slot; g.font = F(26);
-    g.fillText(trip ? `스탬프 ${cnt}개 수집!` : `도장 ${cnt}개 수집!`, W/2, 148);
+    g.fillText(`${C.unit} ${cnt}개 수집!`, W/2, 148);
 
     // 점선 구분
     g.strokeStyle = C.dash; g.lineWidth = 2; g.setLineDash([9, 9]);
@@ -1443,12 +1501,12 @@ async function exportStampBoard() {
     }
 
     g.fillStyle = C.sub; g.font = F(19); g.textAlign = 'center';
-    g.fillText(trip ? 'STUDY TRIP ☀️ 공부 여행 티켓' : 'STUDY PRISON ⛓️ 공부 수감 일지', W/2, H - 34);
+    g.fillText(C.foot, W/2, H - 34);
 
     const url = cv.toDataURL('image/png');
-    const fname = `도장판_${y}-${String(mo+1).padStart(2,'0')}_${(m.name||'나')}.png`;
+    const fname = `${C.unit}판_${y}-${String(mo+1).padStart(2,'0')}_${(m.name||'나')}.png`;
     // 모달로 보여주기 (아이폰은 길게 눌러 저장)
-    $('modal-title').textContent = `${y}년 ${mo+1}월 도장판`;
+    $('modal-title').textContent = `${y}년 ${mo+1}월 ${C.unit}판`;
     $('modal-body').innerHTML = `
       <div class="pv"><img src="${url}" alt="도장판"></div>
       <a class="btn big blue" id="dl-link" href="${url}" download="${fname}"
@@ -1473,7 +1531,7 @@ function renderDuo() {
     const m = members[uid];
     const isMe = uid === me?.uid;
     const st = m.proofs?.[t] ? `<span class="st done">${TH().stDone}</span>`
-             : m.dayoffs?.[t] ? `<span class="st off">${TH().stOff}</span>`
+             : isDayoff(uid, t) ? `<span class="st off">${TH().stOff}</span>`
              : `<span class="st not">${TH().stNot}</span>`;
     html += `<div class="member ${isMe?'me-card':''}">
       <div class="mug"><img src="${m.photoURL||'icon-192-v2.png'}" alt=""><br>
@@ -1498,6 +1556,7 @@ function renderCal() {
   const first = new Date(y, mo, 1).getDay();
   const days = new Date(y, mo+1, 0).getDate();
   const unread = unreadByDate();
+  const offSets = {}; uids.forEach(u => offSets[u] = dayoffSet(u));
   let html = ['SUN','MON','TUE','WED','THU','FRI','SAT'].map(d=>`<div class="dow">${d}</div>`).join('');
   for (let i=0;i<first;i++) html += '<div class="cell out" aria-hidden="true"></div>';
   for (let d=1; d<=days; d++) {
@@ -1508,7 +1567,7 @@ function renderCal() {
       if (!m.startDate || s < m.startDate) return;
       let icon = '';
       if (m.proofs?.[s]) icon = '✔';
-      else if (m.dayoffs?.[s]) icon = TH().icOff;
+      else if (offSets[uid].has(s)) icon = TH().icOff;
       else if (s < t) icon = m.paid?.[s] ? '💰' : '✖';
       else if (s === t) icon = '…';
       if (icon) marks += `<span class="mk" style="border-color:${mkColor(uid)};color:${mkColor(uid)}">${icon}</span>`;
@@ -1534,7 +1593,7 @@ function renderFines() {
   let html = `<div class="case-no"><span>${TH().caseWord}04</span><div class="barcode"></div></div>`;
   for (const uid of uids) {
     const m = members[uid], isMe = uid === me?.uid;
-    const all = fineDates(m);
+    const all = fineDates(m, uid);
     const unpaid = all.filter(s => !m.paid?.[s]);
     const paid = all.filter(s => m.paid?.[s]);
     html += `<div class="receipt">
@@ -1574,28 +1633,157 @@ function payFine(date) {
   inp.click();
 }
 
-/* ── 데이오프 (오늘 포함 미래만) ── */
+/* ── 데이오프 ──
+   · 한 주(일~토)에 1일까지는 바로 등록
+   · 2일 이상(또는 그 주에 이미 쓴 경우)은 구성원 전원의 승인이 필요 */
+const weekKey = s => {           // 그 날짜가 속한 주의 일요일
+  const d = new Date(s + 'T00:00:00');
+  d.setDate(d.getDate() - d.getDay());
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+};
+const dateRange = (a, b) => {
+  const out = [], d = new Date(a + 'T00:00:00'), end = new Date(b + 'T00:00:00');
+  while (d <= end) {
+    out.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`);
+    d.setDate(d.getDate()+1);
+    if (out.length > 60) break;
+  }
+  return out;
+};
+/* 요청의 상태 계산: 나 빼고 전원 승인 → 승인 / 한 명이라도 비승인 → 거절 */
+function reqStatus(r) {
+  const others = Object.keys(members).filter(u => u !== r.uid);
+  const votes = r.votes || {};
+  if (others.some(u => votes[u] === 'n')) return { state:'rejected', yes:0, need:others.length };
+  const yes = others.filter(u => votes[u] === 'y').length;
+  if (!others.length || yes >= others.length) return { state:'approved', yes, need:others.length };
+  return { state:'pending', yes, need:others.length };
+}
+/* 실제로 데이오프인 날짜들 (직접 등록 + 승인된 요청) */
+function dayoffSet(uid) {
+  const s = new Set(Object.keys(members[uid]?.dayoffs || {}));
+  for (const r of reqs) {
+    if (r.uid !== uid) continue;
+    if (reqStatus(r).state === 'approved') (r.dates || []).forEach(d => s.add(d));
+  }
+  return s;
+}
+const isDayoff = (uid, date) => dayoffSet(uid).has(date);
+/* 그 주에 이미 쓴 데이오프 일수 */
+const usedInWeek = (uid, wk) => [...dayoffSet(uid)].filter(d => weekKey(d) === wk).length;
+
 $('dayoff-date').value = todayStr();
 $('dayoff-date').min = todayStr();
-$('btn-dayoff').onclick = async () => {
-  const s = $('dayoff-date').value;
-  if (!s || !me) return;
-  if (s < todayStr()) { toast('지난 날은 등록이 안 돼~ 😅'); return; }
-  const m = members[me.uid] || {};
-  if (m.dayoffs?.[s]) { toast('이미 데이오프로 등록된 날이야!'); return; }
-  await updateDoc(doc(db,'status',me.uid), { ['dayoffs.'+s]: true });
-  toast(`${fmtDate(s)} 데이오프 등록! ${TH().icOff}`);
+$('dayoff-end').min = todayStr();
+$('dayoff-date').onchange = () => {
+  $('dayoff-end').min = $('dayoff-date').value;
+  if ($('dayoff-end').value && $('dayoff-end').value < $('dayoff-date').value) $('dayoff-end').value = '';
 };
+$('btn-dayoff').onclick = async () => {
+  const a = $('dayoff-date').value;
+  const b = $('dayoff-end').value || a;
+  if (!a || !me) return;
+  if (a < todayStr()) { toast('지난 날은 등록이 안 돼~ 😅'); return; }
+  if (b < a) { toast('종료일이 시작일보다 빨라!'); return; }
+  const all = dateRange(a, b);
+  if (all.length > 31) { toast('한 번에 31일까지만 신청할 수 있어!'); return; }
+  const have = dayoffSet(me.uid);
+  const pend = reqs.filter(r => r.uid === me.uid && reqStatus(r).state === 'pending')
+                   .flatMap(r => r.dates || []);
+  const dates = all.filter(d => !have.has(d) && !pend.includes(d));
+  if (!dates.length) { toast('이미 등록됐거나 신청 중인 날이야!'); return; }
+
+  const wk = weekKey(dates[0]);
+  const sameWeek = dates.every(d => weekKey(d) === wk);
+  // 1일 + 그 주에 아직 안 썼으면 바로 등록
+  if (dates.length === 1 && sameWeek && usedInWeek(me.uid, wk) === 0) {
+    await updateDoc(doc(db,'status',me.uid), { ['dayoffs.'+dates[0]]: true });
+    $('dayoff-end').value = ''; $('dayoff-reason').value = '';
+    toast(`${fmtDate(dates[0])} 데이오프 등록! ${TH().icOff}`);
+    return;
+  }
+  // 그 외에는 승인 요청
+  const others = Object.keys(members).filter(u => u !== me.uid).length;
+  if (!others) { // 나 혼자면 승인 절차 없이 등록
+    const upd = {};
+    dates.forEach(d => upd['dayoffs.'+d] = true);
+    await updateDoc(doc(db,'status',me.uid), upd);
+    toast(`${dates.length}일 데이오프 등록!`);
+    return;
+  }
+  const why = $('dayoff-reason').value.trim();
+  if (!confirm(`${dates.length}일(${fmtDate(dates[0])}~${fmtDate(dates[dates.length-1])}) 데이오프는 구성원 ${others}명 전원의 승인이 필요해.\n승인 요청을 보낼까?`)) return;
+  try {
+    await addDoc(collection(db,'requests'), {
+      uid: me.uid, dates, reason: why, votes: {}, ts: Date.now()
+    });
+    $('dayoff-end').value = ''; $('dayoff-reason').value = '';
+    toast('승인 요청을 보냈어! 구성원들이 확인하면 반영돼 📮');
+  } catch(e) { console.error(e); toast('요청 실패 — Firestore 규칙에 requests 있는지 확인해줘!'); }
+};
+
+async function vote(id, v) {
+  try { await updateDoc(doc(db,'requests',id), { ['votes.'+me.uid]: v }); }
+  catch(e) { console.error(e); toast('처리 실패 — Firestore 규칙을 확인해줘!'); }
+}
+
 function renderDayoffs() {
   const m = members[me?.uid]; if (!m) return;
   const t = todayStr();
-  const list = Object.keys(m.dayoffs||{}).filter(s=>s>=t).sort();
-  $('dayoff-list').innerHTML = list.map(s =>
-    `<span class="chip">${TH().icOff} ${fmtDate(s)} <button data-d="${s}" aria-label="취소">✕</button></span>`).join('') ||
-    `<p class="hint">등록된 데이오프 없음</p>`;
+  const mine = [...dayoffSet(me.uid)].filter(s => s >= t).sort();
+  const free = new Set(Object.keys(m.dayoffs || {}));   // 직접 등록분(취소 가능)
+
+  // 이번 주 사용 현황
+  const wk = weekKey(t), used = usedInWeek(me.uid, wk);
+  $('dayoff-week').innerHTML =
+    `<p class="wk-note">이번 주 데이오프 <b>${used} / 1</b> 사용${used ? '' : ' · 1일은 바로 등록돼!'}<br>
+     주 2일 이상은 사유를 적고 신청하면 구성원 전원 승인 후 반영돼.</p>`;
+
+  $('dayoff-list').innerHTML = mine.length
+    ? mine.map(s => `<span class="chip">${TH().icOff} ${fmtDate(s)}${
+        free.has(s) ? ` <button data-d="${s}" aria-label="취소">✕</button>` : ''}</span>`).join('')
+    : `<p class="hint">등록된 데이오프 없음</p>`;
   $('dayoff-list').querySelectorAll('button').forEach(b => b.onclick = async () => {
     await updateDoc(doc(db,'status',me.uid), { ['dayoffs.'+b.dataset.d]: deleteField() });
     toast('데이오프 취소 완료!');
+  });
+
+  // 승인 요청 목록
+  const list = [...reqs].sort((a,b)=>b.ts-a.ts).slice(0, 12);
+  let html = '';
+  const todo = list.filter(r => r.uid !== me.uid && reqStatus(r).state === 'pending' && !(r.votes||{})[me.uid]);
+  if (todo.length) html += `<div class="req-h">🙋 승인해줘야 할 요청 ${todo.length}건</div>`;
+  for (const r of list) {
+    const st = reqStatus(r), isMine = r.uid === me.uid;
+    if (!isMine && st.state !== 'pending' && !(r.votes||{})[me.uid]) continue; // 남의 지난 요청은 숨김
+    const d = r.dates || [];
+    const span = d.length ? `${fmtDate(d[0])}${d.length>1 ? ` ~ ${fmtDate(d[d.length-1])}` : ''} · ${d.length}일` : '';
+    const badge = st.state === 'approved' ? '<span class="req-state ok">승인됨 ✔</span>'
+                : st.state === 'rejected' ? '<span class="req-state no">비승인</span>'
+                : `<span class="req-state wait">대기 ${st.yes}/${st.need}</span>`;
+    const myVote = (r.votes||{})[me.uid];
+    const voters = Object.entries(r.votes||{})
+      .map(([u,v]) => `${esc(members[u]?.name||'?')} ${v==='y'?'✔':'✖'}`).join(' · ');
+    html += `<div class="req ${isMine?'mine':''}">
+      <div class="req-top"><b>${esc(members[r.uid]?.name || '?')}</b>
+        <span class="req-days">${span}</span>${badge}</div>
+      ${r.reason ? `<div class="req-why">사유: ${esc(r.reason)}</div>` : ''}
+      ${voters ? `<div class="req-votes">${voters}</div>` : ''}
+      ${!isMine && st.state === 'pending'
+        ? `<div class="req-acts">
+             <button class="btn blue" data-v="y" data-id="${r.id}">${myVote==='y'?'승인함 ✔':'승인'}</button>
+             <button class="btn no" data-v="n" data-id="${r.id}">${myVote==='n'?'비승인함':'비승인'}</button>
+           </div>` : ''}
+      ${isMine && st.state !== 'approved'
+        ? `<div class="req-acts"><button class="btn ghost" data-del="${r.id}">요청 취소</button></div>` : ''}
+    </div>`;
+  }
+  $('dayoff-reqs').innerHTML = html;
+  $('dayoff-reqs').querySelectorAll('[data-v]').forEach(b => b.onclick = () => vote(b.dataset.id, b.dataset.v));
+  $('dayoff-reqs').querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
+    if (!confirm('이 요청을 취소할까?')) return;
+    try { await deleteDoc(doc(db,'requests',b.dataset.del)); toast('요청 취소됨'); }
+    catch(e) { console.error(e); toast('취소 실패…'); }
   });
 }
 
