@@ -1074,7 +1074,7 @@ if (firebaseConfig.apiKey === "붙여넣기") {
   $('btn-login').disabled = true;
 }
 
-let app, auth, db, me = null, members = {}, unsub = null, unsubC = null, allCmts = [];
+let app, auth, db, me = null, members = {}, unsub = null, unsubC = null, allCmts = [], unsubR = null, reqs = [];
 let view = new Date();
 
 applyTheme(themeId); // 시작하자마자 저장된 테마 적용 (로그인 화면 포함)
@@ -1100,6 +1100,7 @@ onAuthStateChanged(auth, async user => {
     $('bottombar').classList.add('hidden');
     if (unsub) { unsub(); unsub = null; }
     if (unsubC) { unsubC(); unsubC = null; allCmts = []; }
+    if (unsubR) { unsubR(); unsubR = null; reqs = []; }
     return;
   }
   $('login-view').classList.add('hidden');
