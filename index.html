@@ -265,7 +265,6 @@ body{
 input[type=date]{font-family:inherit; font-size:14px; border:2px solid var(--ink); border-radius:4px; padding:9px 8px; background:var(--white); color:var(--ink); min-width:0; flex:1 1 130px;}
 .chip{display:inline-flex; align-items:center; gap:6px; border:2px dashed var(--blue); background:var(--white); color:var(--navy); border-radius:3px; padding:4px 10px; font-size:12px; margin:6px 6px 0 0;}
 .chip button{border:none; background:none; font-family:inherit; cursor:pointer; font-size:12px; color:var(--ink);}
-.chip.past{opacity:.6; border-style:dotted;}
 .wk-note{font-size:11px; margin-top:10px; color:#6B7482; line-height:1.6;}
 .wk-note b{color:var(--blue);}
 
@@ -811,7 +810,7 @@ body[data-theme="autumn"] .n-badge{background:#804229;}
             <input type="date" id="dayoff-end" aria-label="종료 날짜">
             <button class="btn" id="btn-dayoff">데이오프 등록</button>
           </div>
-          <input class="do-reason" id="dayoff-reason" maxlength="40" placeholder="사유 (승인이 필요할 때 구성원에게 보여져)">
+          <input class="do-reason" id="dayoff-reason" maxlength="40" placeholder="사유 (2일 이상일 때 구성원에게 보여져)">
           <div id="dayoff-week"></div>
           <div id="dayoff-list"></div>
           <div id="dayoff-reqs"></div>
@@ -1675,6 +1674,8 @@ const isDayoff = (uid, date) => dayoffSet(uid).has(date);
 const usedInWeek = (uid, wk) => [...dayoffSet(uid)].filter(d => weekKey(d) === wk).length;
 
 $('dayoff-date').value = todayStr();
+$('dayoff-date').min = todayStr();
+$('dayoff-end').min = todayStr();
 $('dayoff-date').onchange = () => {
   $('dayoff-end').min = $('dayoff-date').value;
   if ($('dayoff-end').value && $('dayoff-end').value < $('dayoff-date').value) $('dayoff-end').value = '';
@@ -1683,21 +1684,15 @@ $('btn-dayoff').onclick = async () => {
   const a = $('dayoff-date').value;
   const b = $('dayoff-end').value || a;
   if (!a || !me) return;
+  if (a < todayStr()) { toast('지난 날은 등록이 안 돼~ 😅'); return; }
   if (b < a) { toast('종료일이 시작일보다 빨라!'); return; }
   const all = dateRange(a, b);
   if (all.length > 31) { toast('한 번에 31일까지만 신청할 수 있어!'); return; }
-  const m = members[me.uid] || {};
   const have = dayoffSet(me.uid);
   const pend = reqs.filter(r => r.uid === me.uid && reqStatus(r).state === 'pending')
                    .flatMap(r => r.dates || []);
-  // 이미 등록/신청된 날, 시작일 이전, 이미 인증한 날은 제외
-  const dates = all.filter(d =>
-    !have.has(d) && !pend.includes(d) && !(m.startDate && d < m.startDate) && !m.proofs?.[d]);
-  if (!dates.length) {
-    toast(all.some(d => m.proofs?.[d]) ? '이미 기록한 날은 데이오프가 필요 없어!'
-                                       : '이미 등록됐거나 신청 중인 날이야!');
-    return;
-  }
+  const dates = all.filter(d => !have.has(d) && !pend.includes(d));
+  if (!dates.length) { toast('이미 등록됐거나 신청 중인 날이야!'); return; }
 
   const wk = weekKey(dates[0]);
   const sameWeek = dates.every(d => weekKey(d) === wk);
@@ -1736,21 +1731,18 @@ async function vote(id, v) {
 function renderDayoffs() {
   const m = members[me?.uid]; if (!m) return;
   const t = todayStr();
-  const all = [...dayoffSet(me.uid)].sort();
-  const upcoming = all.filter(s => s >= t);
-  const past = all.filter(s => s < t).slice(-6).reverse();   // 최근 지난 것 6개까지
+  const mine = [...dayoffSet(me.uid)].filter(s => s >= t).sort();
   const free = new Set(Object.keys(m.dayoffs || {}));   // 직접 등록분(취소 가능)
 
   // 이번 주 사용 현황
   const wk = weekKey(t), used = usedInWeek(me.uid, wk);
   $('dayoff-week').innerHTML =
     `<p class="wk-note">이번 주 데이오프 <b>${used} / 1</b> 사용${used ? '' : ' · 1일은 바로 등록돼!'}<br>
-     주 2일 이상은 사유를 적고 신청하면 구성원 전원 승인 후 반영돼. (지난 날짜도 등록 가능!)</p>`;
+     주 2일 이상은 사유를 적고 신청하면 구성원 전원 승인 후 반영돼.</p>`;
 
-  const chip = (s, dim) => `<span class="chip${dim ? ' past' : ''}">${TH().icOff} ${fmtDate(s)}${
-    free.has(s) ? ` <button data-d="${s}" aria-label="취소">✕</button>` : ''}</span>`;
-  $('dayoff-list').innerHTML = (upcoming.length || past.length)
-    ? upcoming.map(s => chip(s, false)).join('') + past.map(s => chip(s, true)).join('')
+  $('dayoff-list').innerHTML = mine.length
+    ? mine.map(s => `<span class="chip">${TH().icOff} ${fmtDate(s)}${
+        free.has(s) ? ` <button data-d="${s}" aria-label="취소">✕</button>` : ''}</span>`).join('')
     : `<p class="hint">등록된 데이오프 없음</p>`;
   $('dayoff-list').querySelectorAll('button').forEach(b => b.onclick = async () => {
     await updateDoc(doc(db,'status',me.uid), { ['dayoffs.'+b.dataset.d]: deleteField() });
