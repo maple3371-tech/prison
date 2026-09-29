@@ -413,6 +413,20 @@ body[data-theme="trip"] .notif-card{box-shadow:4px 4px 0 rgba(30,130,180,.26); b
 .notif-row{display:flex; align-items:center; gap:8px; font-size:12px; padding:7px 0; border-top:1px dotted rgba(11,14,20,.25); margin-top:6px;}
 .notif-row:first-of-type{border-top:none;}
 .notif-row .who{line-height:1.4; word-break:keep-all;}
+.notif-card.ap-card{border-width:3px;}
+.ap-row{align-items:flex-start;}
+.ap-when{font-size:11px; opacity:.75;}
+.ap-why{font-size:11px; color:#5B6472;}
+.ap-btns{margin-left:auto; display:flex; flex-direction:column; gap:5px; flex-shrink:0;}
+.btn.ap{font-size:10px; padding:5px 10px; box-shadow:2px 2px 0 var(--ink); border-width:2px; border-radius:4px; white-space:nowrap;}
+.btn.no{background:#C0392B;}
+.ap-big{border:2px solid var(--ink); border-radius:6px; padding:14px; margin-bottom:12px; background:var(--white); text-align:center;}
+.ap-big-who{font-size:15px; margin-bottom:6px;}
+.ap-big-when{font-size:14px; color:var(--blue); margin-bottom:6px;}
+.ap-big-why{font-size:13px; color:#5B6472; margin-bottom:8px; word-break:break-word; line-height:1.5;}
+.ap-big-cnt{font-size:11px; color:#6B7482; margin-bottom:12px;}
+.ap-big-btns{display:flex; gap:8px; justify-content:center;}
+.ap-big-btns .btn{font-size:14px; padding:10px 18px;}
 .notif-row .go{margin-left:auto; font-size:10px; padding:5px 10px; box-shadow:2px 2px 0 var(--ink); border-width:2px; border-radius:4px; white-space:nowrap; flex-shrink:0;}
 .setup-warn{background:var(--paper); border:3px solid var(--ink); border-radius:6px; padding:14px; font-size:14px; line-height:1.6; box-shadow:6px 6px 0 rgba(0,0,0,.55); margin:22px 0;}
 code{background:#E8ECF2; border:1px solid var(--ink); border-radius:3px; padding:1px 5px; font-size:12px;}
@@ -859,6 +873,15 @@ body[data-theme="autumn"] .n-badge{background:#804229;}
       <button class="btn big blue" id="p-save" style="max-width:250px">저장하기</button>
       <p class="hint">여기서 바꾼 사진·이름·도장·테마가 구글 것보다 우선이야!</p>
     </div>
+  </div>
+</div>
+
+<!-- 데이오프 승인 팝업 -->
+<div class="modal" id="amodal">
+  <div class="win">
+    <div class="win-bar">🙋 데이오프 승인 요청 <span class="x" onclick="closeAModal()">✕ 나중에</span></div>
+    <div class="win-body" id="amodal-body"></div>
+    <div style="padding:0 14px 14px"><button class="btn big ghost" onclick="closeAModal()">나중에 볼게요</button></div>
   </div>
 </div>
 
@@ -1322,22 +1345,83 @@ function unreadByDate() {
 }
 function renderNotif() {
   const box = $('notif'); if (!box || !me) return;
+  let html = '';
+
+  // ① 데이오프 승인 요청 (내가 아직 투표 안 한 것) — 맨 위에!
+  const todo = reqs.filter(r => r.uid !== me.uid
+    && reqStatus(r).state === 'pending' && !(r.votes||{})[me.uid]);
+  if (todo.length) {
+    let rows = '';
+    for (const r of todo.slice(0, 5)) {
+      const d = r.dates || [];
+      const span = d.length ? `${fmtDate(d[0])}${d.length>1 ? ` ~ ${fmtDate(d[d.length-1])}` : ''} · ${d.length}일` : '';
+      rows += `<div class="notif-row ap-row">
+        <span class="who"><b>${esc(members[r.uid]?.name || '?')}</b> 데이오프 신청<br>
+          <span class="ap-when">${span}</span>${r.reason ? `<br><span class="ap-why">사유: ${esc(r.reason)}</span>` : ''}</span>
+        <span class="ap-btns">
+          <button class="btn blue ap" data-v="y" data-id="${r.id}">승인</button>
+          <button class="btn ap no" data-v="n" data-id="${r.id}">비승인</button>
+        </span></div>`;
+    }
+    html += `<div class="notif-card ap-card">
+      <div class="notif-title">🙋 데이오프 승인 요청 <span class="n-badge">${todo.length}</span></div>${rows}</div>`;
+  }
+
+  // ② 새 댓글 알림
   const map = unreadByDate();
   const dates = Object.keys(map).sort().reverse();
-  if (!dates.length) { box.classList.add('hidden'); box.innerHTML = ''; return; }
-  const total = dates.reduce((n,d)=>n+map[d].length, 0);
-  let rows = '';
-  for (const d of dates.slice(0, 6)) {
-    const who = [...new Set(map[d].map(c => members[c.uid]?.name || '?'))].map(esc).join(', ');
-    rows += `<div class="notif-row"><span class="who">💬 ${fmtDate(d)} 기록 · ${who} 댓글 ${map[d].length}개</span>
-      <button class="btn blue go" data-d="${d}">보러 가기 →</button></div>`;
+  if (dates.length) {
+    const total = dates.reduce((n,d)=>n+map[d].length, 0);
+    let rows = '';
+    for (const d of dates.slice(0, 6)) {
+      const who = [...new Set(map[d].map(c => members[c.uid]?.name || '?'))].map(esc).join(', ');
+      rows += `<div class="notif-row"><span class="who">💬 ${fmtDate(d)} 기록 · ${who} 댓글 ${map[d].length}개</span>
+        <button class="btn blue go" data-d="${d}">보러 가기 →</button></div>`;
+    }
+    if (dates.length > 6) rows += `<div class="notif-row"><span class="who" style="opacity:.6">…외 ${dates.length-6}일 더 (달력의 💬 표시를 눌러봐!)</span></div>`;
+    html += `<div class="notif-card">
+      <div class="notif-title">${TH().notifTitle} <span class="n-badge">${total}</span></div>${rows}</div>`;
   }
-  if (dates.length > 6) rows += `<div class="notif-row"><span class="who" style="opacity:.6">…외 ${dates.length-6}일 더 (달력의 💬 표시를 눌러봐!)</span></div>`;
-  box.innerHTML = `<div class="notif-card">
-    <div class="notif-title">${TH().notifTitle} <span class="n-badge">${total}</span></div>${rows}</div>`;
+
+  if (!html) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+  box.innerHTML = html;
   box.classList.remove('hidden');
   box.querySelectorAll('.go').forEach(b => b.onclick = () => openPhotos(b.dataset.d));
+  box.querySelectorAll('.ap').forEach(b => b.onclick = () => vote(b.dataset.id, b.dataset.v));
+
+  // 들어오자마자 한 번은 팝업으로 물어보기
+  if (todo.length && !askedApproval) { askedApproval = true; setTimeout(openApprovalPopup, 700); }
 }
+
+/* ── 입장 시 승인 팝업 ── */
+let askedApproval = false;
+function openApprovalPopup() {
+  const todo = reqs.filter(r => r.uid !== me?.uid
+    && reqStatus(r).state === 'pending' && !(r.votes||{})[me.uid]);
+  if (!todo.length) { $('amodal').classList.remove('open'); return; }
+  $('amodal-body').innerHTML = todo.map(r => {
+    const d = r.dates || [];
+    const span = d.length ? `${fmtDate(d[0])}${d.length>1 ? ` ~ ${fmtDate(d[d.length-1])}` : ''} · ${d.length}일` : '';
+    const st = reqStatus(r);
+    return `<div class="ap-big">
+      <div class="ap-big-who"><b>${esc(members[r.uid]?.name || '?')}</b> 님의 데이오프 신청</div>
+      <div class="ap-big-when">${span}</div>
+      ${r.reason ? `<div class="ap-big-why">“${esc(r.reason)}”</div>` : ''}
+      <div class="ap-big-cnt">현재 ${st.yes} / ${st.need}명 승인</div>
+      <div class="ap-big-btns">
+        <button class="btn blue" data-v="y" data-id="${r.id}">승인할게요</button>
+        <button class="btn no" data-v="n" data-id="${r.id}">비승인</button>
+      </div></div>`;
+  }).join('');
+  $('amodal-body').querySelectorAll('[data-v]').forEach(b => b.onclick = async () => {
+    b.disabled = true;
+    await vote(b.dataset.id, b.dataset.v);
+    toast(b.dataset.v === 'y' ? '승인했어! 👍' : '비승인 처리했어.');
+    setTimeout(openApprovalPopup, 300);   // 남은 게 있으면 이어서, 없으면 닫힘
+  });
+  $('amodal').classList.add('open');
+}
+window.closeAModal = () => $('amodal').classList.remove('open');
 
 function renderUserbar() {
   const m = members[me?.uid]; if (!m) return;
