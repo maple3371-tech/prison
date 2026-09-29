@@ -285,6 +285,7 @@ input[type=date]{font-family:inherit; font-size:14px; border:2px solid var(--ink
 .req-acts{display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;}
 .req-acts .btn{font-size:11px; padding:6px 12px; box-shadow:2px 2px 0 var(--ink); border-width:2px;}
 .req-acts .btn.no{background:#C0392B;}
+.req-acts .btn.undo{font-size:10px; padding:6px 9px;}
 .req-votes{font-size:10px; color:#6B7482; margin-top:6px; line-height:1.5;}
 .req-h{font-size:12px; margin-top:16px; letter-spacing:.06em;}
 
@@ -1840,7 +1841,7 @@ function renderDayoffs() {
   if (todo.length) html += `<div class="req-h">🙋 승인해줘야 할 요청 ${todo.length}건</div>`;
   for (const r of list) {
     const st = reqStatus(r), isMine = r.uid === me.uid;
-    if (!isMine && st.state !== 'pending' && !(r.votes||{})[me.uid]) continue; // 남의 지난 요청은 숨김
+    if (!isMine && st.state !== 'pending' && !(r.votes||{})[me.uid]) continue; // 내가 관여 안 한 지난 요청만 숨김
     const d = r.dates || [];
     const span = d.length ? `${fmtDate(d[0])}${d.length>1 ? ` ~ ${fmtDate(d[d.length-1])}` : ''} · ${d.length}일` : '';
     const badge = st.state === 'approved' ? '<span class="req-state ok">승인됨 ✔</span>'
@@ -1854,17 +1855,28 @@ function renderDayoffs() {
         <span class="req-days">${span}</span>${badge}</div>
       ${r.reason ? `<div class="req-why">사유: ${esc(r.reason)}</div>` : ''}
       ${voters ? `<div class="req-votes">${voters}</div>` : ''}
-      ${!isMine && st.state === 'pending'
+      ${!isMine
         ? `<div class="req-acts">
-             <button class="btn blue" data-v="y" data-id="${r.id}">${myVote==='y'?'승인함 ✔':'승인'}</button>
-             <button class="btn no" data-v="n" data-id="${r.id}">${myVote==='n'?'비승인함':'비승인'}</button>
-           </div>` : ''}
+             <button class="btn ${myVote==='y'?'blue':'ghost'}" data-v="y" data-id="${r.id}">${myVote==='y'?'승인함 ✔':'승인'}</button>
+             <button class="btn ${myVote==='n'?'no':'ghost'}" data-v="n" data-id="${r.id}">${myVote==='n'?'비승인함 ✖':'비승인'}</button>
+             ${myVote ? `<button class="btn ghost undo" data-undo="${r.id}">↩ 투표 취소</button>` : ''}
+           </div>
+           ${myVote ? `<div class="req-votes">내 투표를 언제든 바꿀 수 있어!</div>` : ''}` : ''}
       ${isMine && st.state !== 'approved'
         ? `<div class="req-acts"><button class="btn ghost" data-del="${r.id}">요청 취소</button></div>` : ''}
     </div>`;
   }
   $('dayoff-reqs').innerHTML = html;
-  $('dayoff-reqs').querySelectorAll('[data-v]').forEach(b => b.onclick = () => vote(b.dataset.id, b.dataset.v));
+  $('dayoff-reqs').querySelectorAll('[data-v]').forEach(b => b.onclick = async () => {
+    await vote(b.dataset.id, b.dataset.v);
+    toast(b.dataset.v === 'y' ? '승인으로 바꿨어! 👍' : '비승인으로 바꿨어.');
+  });
+  $('dayoff-reqs').querySelectorAll('[data-undo]').forEach(b => b.onclick = async () => {
+    try {
+      await updateDoc(doc(db,'requests',b.dataset.undo), { ['votes.'+me.uid]: deleteField() });
+      toast('투표를 취소했어. 다시 고를 수 있어!');
+    } catch(e) { console.error(e); toast('처리 실패…'); }
+  });
   $('dayoff-reqs').querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
     if (!confirm('이 요청을 취소할까?')) return;
     try { await deleteDoc(doc(db,'requests',b.dataset.del)); toast('요청 취소됨'); }
